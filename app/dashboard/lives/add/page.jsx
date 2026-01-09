@@ -53,9 +53,6 @@ const formSchema = z.object({
   url: z.string().min(1, {
     message: "Thumbnail is required!",
   }),
-  quizSet: z.string().min(1, {
-    message: "Quiz Set is required!",
-  }),
 });
 
 const AddLive = () => {
@@ -200,31 +197,6 @@ const AddLive = () => {
                         placeholder="Video URL"
                         {...field}
                         type="url"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="quizSet"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quiz Set</FormLabel>
-                    <FormControl>
-                      <Combobox
-                        options={[
-                          {
-                            label: "Reactive Accelerator Quizes",
-                            value: "1",
-                          },
-                          {
-                            label: "Think In A Redux Way Quizes",
-                            value: "2",
-                          },
-                        ]}
-                        {...field}
                       />
                     </FormControl>
                     <FormMessage />

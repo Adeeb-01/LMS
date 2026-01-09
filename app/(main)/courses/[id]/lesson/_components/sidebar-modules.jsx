@@ -5,17 +5,11 @@ import {
     AccordionItem,
     AccordionTrigger,
   } from "@/components/ui/accordion";
-  import { Button } from "@/components/ui/button";
-  import { cn } from "@/lib/utils";
-  import { CheckCircle } from "lucide-react";
-  import { PlayCircle } from "lucide-react";
-  import { Lock } from "lucide-react";
-  import Link from "next/link";
 import { SidebarLessons } from "./sidebar-lessons";
 import { replaceMongoIdInArray } from "@/lib/convertData";
 import { useSearchParams } from "next/navigation";
 
-export const SidebarModules = ({courseId,modules}) => {
+export const SidebarModules = ({courseId, modules, lessonQuizMap = {}, quizStatusMap = {}}) => {
 
   const seachParams = useSearchParams();
   const allModules = replaceMongoIdInArray(modules).toSorted((a,b) => a.order - b.order);
@@ -28,7 +22,7 @@ export const SidebarModules = ({courseId,modules}) => {
     });
   });
 
-  const exapndModuleId = expandModule?.id ?? allModules[0].id;
+  const exapndModuleId = expandModule?.id ?? allModules[0]?.id;
    
 
     return (
@@ -44,14 +38,17 @@ export const SidebarModules = ({courseId,modules}) => {
          <AccordionItem key={module.id} className="border-0" value={module.id}>
           <AccordionTrigger>{module.title} </AccordionTrigger>
 
-          <SidebarLessons courseId={courseId} lessons={module.lessonIds} module={module.slug} />
+          <SidebarLessons
+            courseId={courseId}
+            lessons={module.lessonIds}
+            module={module.slug}
+            lessonQuizMap={lessonQuizMap}
+            quizStatusMap={quizStatusMap}
+          />
 
         </AccordionItem>
           ))
         }
-        
-        
-
         
       </Accordion>
     )

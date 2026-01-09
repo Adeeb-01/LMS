@@ -4,8 +4,10 @@ import { Course } from "@/model/course-model";
 import { Testimonial } from "@/model/testimonial-model";
 import { getLoggedInUser } from "@/lib/loggedin-user";
 import mongoose from "mongoose";
+import { dbConnect } from "@/service/mongo";
 
 export async function createReview(data, loginid, courseId){
+    await dbConnect();
     const session = await mongoose.startSession();
     session.startTransaction();
 

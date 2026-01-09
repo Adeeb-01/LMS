@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { existsSync } from "fs";
+import { mkdir, unlink } from "fs/promises";
+import { existsSync, createWriteStream } from "fs";
 import { join } from "path";
 import { dbConnect } from "@/service/mongo";
 import { Lesson } from "@/model/lesson.model";
@@ -11,6 +11,8 @@ import { ROLES } from "@/lib/permissions";
 import { createErrorResponse, createSuccessResponse, ERROR_CODES } from "@/lib/errors";
 import { logRoute } from "@/lib/logger";
 import mongoose from "mongoose";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 
 // Configuration
 const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300MB
@@ -71,12 +73,50 @@ async function verifyLessonOwnership(lessonId, userId) {
 }
 
 /**
+ * Convert Web ReadableStream to Node.js Readable stream
+ */
+function webStreamToNode(webStream) {
+    const reader = webStream.getReader();
+    
+    return new Readable({
+        async read() {
+            try {
+                const { done, value } = await reader.read();
+                if (done) {
+                    this.push(null);
+                } else {
+                    this.push(Buffer.from(value));
+                }
+            } catch (error) {
+                this.destroy(error);
+            }
+        },
+        destroy(error, callback) {
+            reader.cancel().then(() => callback(error)).catch(callback);
+        }
+    });
+}
+
+/**
+ * Stream file to disk without buffering entire file in memory
+ * Uses stream/promises pipeline for proper backpressure handling
+ */
+async function streamFileToDisk(webStream, filepath) {
+    const nodeStream = webStreamToNode(webStream);
+    const writeStream = createWriteStream(filepath);
+    
+    await pipeline(nodeStream, writeStream);
+}
+
+/**
  * POST /api/upload/video
- * Upload video file for a lesson
+ * Upload video file for a lesson using streaming (memory efficient)
  */
 export async function POST(request) {
     const logger = logRoute('/api/upload/video', 'POST');
     logger.start();
+    
+    let filepath = null; // Track for cleanup on error
     
     try {
         // 1. Authentication check
@@ -172,7 +212,7 @@ export async function POST(request) {
         
         // 10. Generate safe filename
         const filename = generateSafeFilename(file.name);
-        const filepath = join(UPLOAD_DIR, filename);
+        filepath = join(UPLOAD_DIR, filename);
         
         // 11. Prevent path traversal (extra safety)
         if (!filepath.startsWith(UPLOAD_DIR)) {
@@ -198,12 +238,11 @@ export async function POST(request) {
             }
         }
         
-        // 13. Save file to disk
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        await writeFile(filepath, buffer);
+        // 13. Stream file to disk (MEMORY EFFICIENT - no buffering)
+        // Uses pipeline with backpressure handling
+        await streamFileToDisk(file.stream(), filepath);
         
-        console.log('[UPLOAD] Video saved:', filename, 'Size:', file.size, 'bytes');
+        console.log('[UPLOAD] Video saved (streamed):', filename, 'Size:', file.size, 'bytes');
         
         // 14. Update lesson record
         const videoUrl = `/api/videos/${filename}`;
@@ -228,6 +267,17 @@ export async function POST(request) {
         
     } catch (error) {
         console.error('[UPLOAD] Error:', error);
+        
+        // Cleanup partially uploaded file on error
+        if (filepath && existsSync(filepath)) {
+            try {
+                await unlink(filepath);
+                console.log('[UPLOAD] Cleaned up partial file:', filepath);
+            } catch (cleanupError) {
+                console.error('[UPLOAD] Error cleaning up partial file:', cleanupError);
+            }
+        }
+        
         logger.failure(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             createErrorResponse(
@@ -353,4 +403,3 @@ export async function DELETE(request) {
         );
     }
 }
-

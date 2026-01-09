@@ -87,8 +87,8 @@ export default auth((req) => {
 
 export const config = {
     matcher: [
-      // Exclude Next.js internal routes, static files, API auth routes, and webhook routes
-      "/((?!api/auth|api/webhooks|_next|favicon.ico|.*\\..*).*)",
+      // Exclude ALL /api routes, Next.js internal routes, and static files
+      "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
       "/", // Include the root route
     ],
   };

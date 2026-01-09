@@ -4,6 +4,8 @@ import {
   LayoutDashboard,
   ListChecks,
 } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { CategoryForm } from "./_components/category-form";
 import { DescriptionForm } from "./_components/description-form";
 import { ImageForm } from "./_components/image-form";
@@ -12,17 +14,30 @@ import { PriceForm } from "./_components/price-form";
 import { TitleForm } from "./_components/title-form";
 import { CourseActions } from "./_components/course-action";
 import AlertBanner from "@/components/alert-banner";
-import { QuizSetForm } from "./_components/quiz-set-form";
 import { getCourseDetails } from "@/queries/courses";
 import { SubTitleForm } from "./_components/subtitle-form";
 import { getCategories } from "@/queries/categories";
 import { replaceMongoIdInArray } from "@/lib/convertData";
 import { ObjectId } from "mongoose";
-import { getAllQuizSets } from "@/queries/quizzes";
+import { getLoggedInUser } from "@/lib/loggedin-user";
+import { getCourseWithOwnershipCheck } from "@/lib/authorization";
+import { notFound } from "next/navigation";
 
 const EditCourse = async ({ params }) => {
   const { courseId } = await params;
-  const course = await getCourseDetails(courseId);
+  
+  // Security: Verify ownership before allowing edit access
+  const loggedInUser = await getLoggedInUser();
+  if (!loggedInUser) {
+    notFound();
+  }
+  
+  const course = await getCourseWithOwnershipCheck(courseId, loggedInUser.id, loggedInUser);
+  
+  // If user doesn't own this course, return 404 to prevent info leakage
+  if (!course) {
+    notFound();
+  }
   const categories = await getCategories();
 
   const mappedCategories = categories.map((c) => ({
@@ -47,15 +62,6 @@ const EditCourse = async ({ params }) => {
   );
   const modules = sanitizeData(rawModules);
 
-  const allQuizSets = await getAllQuizSets(true);
-  const mappedQuizSet =
-    Array.isArray(allQuizSets) && allQuizSets.length > 0
-      ? allQuizSets.map((quizSet) => ({
-        value: quizSet.id,
-        label: quizSet.title,
-      }))
-      : [];
-
   // ✅ FIX: safe image url (avoid /undefined)
   const courseImageUrl = course?.thumbnail
     ? `/assets/images/courses/${course.thumbnail}`
@@ -71,7 +77,13 @@ const EditCourse = async ({ params }) => {
       )}
 
       <div className="p-6">
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <Link href={`/dashboard/courses/${courseId}/quizzes`}>
+            <Button variant="outline">
+              <ListChecks className="w-4 h-4 mr-2" />
+              Quizzes
+            </Button>
+          </Link>
           <CourseActions courseId={courseId} isActive={course?.active} />
         </div>
 
@@ -107,12 +119,6 @@ const EditCourse = async ({ params }) => {
               initialData={{ value: course?.category?.title }}
               courseId={courseId}
               options={mappedCategories}
-            />
-
-            <QuizSetForm
-              initialData={{ quizSetId: course?.quizSet?._id?.toString() }}
-              courseId={courseId}
-              options={mappedQuizSet}
             />
           </div>
 

@@ -1,18 +1,6 @@
  
 import { CourseProgress } from "@/components/course-progress";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { CheckCircle } from "lucide-react";
-import { PlayCircle } from "lucide-react";
-import { Lock } from "lucide-react";
 import Link from "next/link";
-import { ReviewModal } from "./review-modal";
 import { DownloadCertificate } from "./download-certificate";
 import { GiveReview } from "./give-review";
 import { SidebarModules } from "./sidebar-modules";
@@ -21,7 +9,30 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { Watch } from "@/model/watch-model";
 import { ObjectId } from "mongoose";
 import { getReport } from "@/queries/reports";
-import Quiz from "./quiz";
+import { dbConnect } from "@/service/mongo";
+import { getCourseQuizzes, getStudentQuizStatusMap } from "@/queries/quizv2";
+import { getLessonQuiz } from "@/queries/quizv2";
+
+/**
+ * Fetch all completed watches for a user in a course in ONE query
+ * Returns a Set of lesson IDs (as strings) for O(1) lookup
+ */
+async function getCompletedLessonsSet(userId, courseId, modules) {
+  await dbConnect();
+  
+  // Get all module IDs from the course
+  const moduleIds = modules.map(m => m._id);
+  
+  // Single query to get all completed watches for this user in these modules
+  const completedWatches = await Watch.find({
+    user: userId,
+    module: { $in: moduleIds },
+    state: 'completed'
+  }).select('lesson').lean();
+  
+  // Build Set of completed lesson IDs for O(1) lookup
+  return new Set(completedWatches.map(w => w.lesson.toString()));
+}
 
 export const CourseSidebar = async ({courseId}) => {
 
@@ -30,32 +41,59 @@ export const CourseSidebar = async ({courseId}) => {
 
   const report = await getReport({ course:courseId, student: loggedinUser.id  })
 
-  const totalCompletedModules = report?.totalCompletedModeules ? report?.totalCompletedModeules.length : 0;
+  const totalCompletedModules = report?.totalCompletedModules ? report?.totalCompletedModules.length : 0;
 
   const totalModules = course?.modules ? course.modules.length : 0;
 
   const totalProgress = (totalModules > 0) ? (totalCompletedModules/totalModules) * 100 : 0;
 
+  // PERFORMANCE FIX: Fetch all completed lessons in ONE query instead of N+1
+  const completedLessonsSet = await getCompletedLessonsSet(
+    loggedinUser.id, 
+    courseId, 
+    course?.modules || []
+  );
 
+  // Fetch quizzes and quiz status
+  const [courseQuizzes, quizStatusMap] = await Promise.all([
+    getCourseQuizzes(courseId, { forStudent: true, includeUnpublished: false }),
+    getStudentQuizStatusMap(courseId, loggedinUser.id)
+  ]);
 
-
-
-  const updatedModules = await Promise.all(course?.modules.map(async(module) => {
-    const moduleId = module._id.toString();
-    const lessons = module?.lessonIds;
-
-  const updatedLessons = await Promise.all(lessons.map(async (lesson) => {
-    const lessonId = lesson._id.toString();
-    const watch = await Watch.findOne({lesson: lessonId, module:moduleId , user: loggedinUser.id }).lean();
-    if (watch?.state === 'completed') {
-      lesson.state = 'completed';
+  // Get lesson quizzes map
+  const lessonQuizMap = {};
+  for (const quiz of courseQuizzes) {
+    if (quiz.lessonId) {
+      lessonQuizMap[quiz.lessonId.toString()] = quiz;
     }
-    return lesson;
-  }))
-    return module; 
-  }));
+  }
 
-  //console.log(updatedModules);
+  // Mark lessons as completed using the Set (O(1) lookup per lesson)
+  const updatedModules = course?.modules.map((module) => {
+    const lessons = module?.lessonIds || [];
+
+    const updatedLessons = lessons.map((lesson) => {
+      const lessonId = lesson._id.toString();
+      const watchCompleted = completedLessonsSet.has(lessonId);
+      
+      // Check if lesson has required quiz
+      const lessonQuiz = lessonQuizMap[lessonId];
+      let allRequiredPassed = true;
+      if (lessonQuiz && lessonQuiz.required) {
+        const qId = lessonQuiz.id || lessonQuiz._id?.toString();
+        const status = quizStatusMap[qId];
+        allRequiredPassed = status && status.passed && !status.pendingManual;
+      }
+
+      // Lesson is completed when watch is completed AND required quiz passed (if any)
+      if (watchCompleted && allRequiredPassed) {
+        lesson.state = 'completed';
+      }
+      return lesson;
+    });
+    
+    return module; 
+  }) || [];
 
   const updatedallModules = updatedModules ? sanitizeData(updatedModules) : [];
 
@@ -85,13 +123,6 @@ function sanitizeData(data) {
   }
 }
 
-  const quizSetall = course?.quizSet;
-  const isQuizComplete = report?.quizAssessment ? true : false;
-  const quizSet = quizSetall ? sanitizeData(quizSetall) : null;
-
-  //console.log({quizSet});
-  //console.log({isQuizComplete});
-
   return (
     <>
       <div className="h-full border-r flex flex-col overflow-y-auto shadow-sm">
@@ -105,14 +136,25 @@ function sanitizeData(data) {
           }
         </div> 
         
-        <SidebarModules courseId={courseId} modules={updatedallModules} />
+        <SidebarModules
+          courseId={courseId}
+          modules={updatedallModules}
+          lessonQuizMap={lessonQuizMap}
+          quizStatusMap={quizStatusMap}
+        />
 
-        <div className="w-full px-4 lg:px-14 pt-10 border-t">
-          {
-            quizSet && <Quiz courseId={courseId} quizSet={quizSet} isTaken={isQuizComplete} />
-          }
-          
-        </div>
+        {/* Course-level quizzes section */}
+        {courseQuizzes.filter(q => !q.lessonId).length > 0 && (
+          <div className="w-full px-6 pt-8 border-t">
+            <div className="text-sm font-medium text-slate-700 mb-2">Course Quizzes</div>
+            <Link
+              href={`/courses/${courseId}/quizzes`}
+              className="text-sm text-slate-500 hover:text-slate-700 underline underline-offset-2"
+            >
+              View all quizzes ({courseQuizzes.filter(q => !q.lessonId).length})
+            </Link>
+          </div>
+        )}
 
         <div className="w-full px-6 mb-10">
         <GiveReview courseId={courseId} loginid={loggedinUser.id} /> 

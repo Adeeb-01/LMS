@@ -12,18 +12,30 @@ const Course = async ({ params, searchParams }) => {
 	const resolvedSearchParams = await searchParams;
 	const { name, module } = resolvedSearchParams || {};
 	const course = await getCourseDetails(id);
-	const allModules = replaceMongoIdInArray(course.modules).toSorted((a, b) => a.order - b.order);
+	const allModules = course?.modules ? replaceMongoIdInArray(course.modules).toSorted((a, b) => a.order - b.order) : [];
 
-	const defaultLesson = replaceMongoIdInObject(allModules[0]?.lessonIds?.toSorted((a, b) => a.order - b.order)[0]);
+	const defaultLesson = allModules.length > 0 && allModules[0]?.lessonIds?.length > 0
+		? replaceMongoIdInObject(allModules[0].lessonIds.toSorted((a, b) => a.order - b.order)[0])
+		: null;
 
 	const lessonToPay = name ? await getLessonBySlug(name) : defaultLesson;
 
-	const defaultModule = module ?? allModules[0].slug;
+	const defaultModule = module ?? (allModules.length > 0 ? allModules[0].slug : null);
 
 	//console.log({lessonToPay});
 
 
 
+
+	if (!lessonToPay) {
+		return (
+			<div className="flex flex-col max-w-4xl mx-auto pb-20 p-4">
+				<div className="text-center py-12">
+					<p className="text-slate-500">No lesson found. Please select a lesson from the sidebar.</p>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div>

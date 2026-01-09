@@ -130,10 +130,26 @@ export async function POST(request) {
         // Normalize destination for consistent path construction
         const normalizedDestination = normalizeDestination(destination);
 
-        // Validate courseId if provided
+        // Validate courseId if provided - verify ownership
         if (courseId) {
-            // Additional authorization: verify user owns the course
-            // This would require checking course ownership
+            const { verifyInstructorOwnsCourse, isAdmin } = await import('@/lib/authorization');
+            const { dbConnect } = await import('@/service/mongo');
+            
+            await dbConnect();
+            
+            // Check if user owns the course or is admin
+            const canUpload = await verifyInstructorOwnsCourse(
+                courseId, 
+                session.user.id, 
+                session.user
+            );
+            
+            if (!canUpload && !isAdmin(session.user)) {
+                return NextResponse.json(
+                    { error: 'Forbidden: You do not have permission to upload to this course' },
+                    { status: 403 }
+                );
+            }
         }
 
         // Sanitize filename

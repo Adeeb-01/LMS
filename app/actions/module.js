@@ -5,8 +5,10 @@ import { Module } from "@/model/module.model";
 import { create } from "@/queries/modules";
 import mongoose from "mongoose";
 import { getLoggedInUser } from "@/lib/loggedin-user";
+import { dbConnect } from "@/service/mongo";
 
 export async function createModule(data){
+    await dbConnect();
     try {
         const user = await getLoggedInUser();
         if (!user) {
@@ -44,11 +46,17 @@ export async function createModule(data){
 }
 
 export async function reOrderModules(data){
+    await dbConnect();
     try {
         const user = await getLoggedInUser();
         if (!user) {
             throw new Error('Unauthorized: Please log in');
         }
+        
+        // Verify ownership of all modules being reordered
+        const { verifyOwnsAllModules } = await import('@/lib/authorization');
+        const moduleIds = data.map(element => element.id);
+        await verifyOwnsAllModules(moduleIds, user.id, user);
         
         await Promise.all(data.map(async(element) => {
             await Module.findByIdAndUpdate(element.id, {order: element.position});
@@ -59,11 +67,16 @@ export async function reOrderModules(data){
 }
 
 export async function updateModule(moduleId, data) {
+    await dbConnect();
     try {
         const user = await getLoggedInUser();
         if (!user) {
             throw new Error('Unauthorized: Please log in');
         }
+        
+        // Verify ownership via module -> course chain
+        const { assertInstructorOwnsModule } = await import('@/lib/authorization');
+        await assertInstructorOwnsModule(moduleId, user.id, user);
         
         await Module.findByIdAndUpdate(moduleId, data);
     } catch (error) {
@@ -74,11 +87,16 @@ export async function updateModule(moduleId, data) {
 
 
 export async function changeModulePublishState(moduleId) {
+    await dbConnect();
     try {
         const user = await getLoggedInUser();
         if (!user) {
             throw new Error('Unauthorized: Please log in');
         }
+        
+        // Verify ownership via module -> course chain
+        const { assertInstructorOwnsModule } = await import('@/lib/authorization');
+        await assertInstructorOwnsModule(moduleId, user.id, user);
         
         const module = await Module.findById(moduleId);
         if (!module) {
@@ -98,6 +116,7 @@ export async function changeModulePublishState(moduleId) {
 }
 
 export async function deleteModule(moduleId, courseId){
+    await dbConnect();
     try {
         const user = await getLoggedInUser();
         if (!user) {

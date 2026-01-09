@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { readFile, stat } from "fs/promises";
+import { stat, createReadStream } from "fs";
 import { existsSync } from "fs";
 import { join } from "path";
 import { dbConnect } from "@/service/mongo";
@@ -11,19 +11,48 @@ import { Enrollment } from "@/model/enrollment-model";
 import { ROLES } from "@/lib/permissions";
 import { logRoute } from "@/lib/logger";
 import mongoose from "mongoose";
+import { promisify } from "util";
+import { Readable } from "stream";
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'videos');
+const statAsync = promisify(stat);
 
 /**
  * Parse Range header
- * Returns { start, end } or null
+ * Returns { start, end } or null for invalid/missing range
  */
 function parseRange(range, fileSize) {
-    if (!range) return null;
+    if (!range || !range.startsWith('bytes=')) return null;
     
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const rangeValue = range.replace(/bytes=/, '');
+    const parts = rangeValue.split('-');
+    
+    // Handle different range formats:
+    // bytes=0-499 (first 500 bytes)
+    // bytes=500-999 (second 500 bytes)
+    // bytes=-500 (last 500 bytes)
+    // bytes=500- (from byte 500 to end)
+    
+    let start, end;
+    
+    if (parts[0] === '') {
+        // Suffix range: bytes=-500 (last 500 bytes)
+        const suffixLength = parseInt(parts[1], 10);
+        if (isNaN(suffixLength) || suffixLength <= 0) return null;
+        start = Math.max(0, fileSize - suffixLength);
+        end = fileSize - 1;
+    } else {
+        start = parseInt(parts[0], 10);
+        end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    }
+    
+    // Validate range
+    if (isNaN(start) || isNaN(end)) return null;
+    if (start < 0 || start >= fileSize) return null;
+    if (end < start) return null;
+    
+    // Clamp end to file size
+    end = Math.min(end, fileSize - 1);
     
     return { start, end };
 }
@@ -81,8 +110,38 @@ async function verifyVideoAccess(filename, userId, userRole) {
 }
 
 /**
+ * Convert Node.js Readable stream to Web ReadableStream
+ * Uses Readable.toWeb() for Node 18+
+ */
+function nodeStreamToWeb(nodeStream) {
+    // Node 18+ has Readable.toWeb()
+    if (typeof Readable.toWeb === 'function') {
+        return Readable.toWeb(nodeStream);
+    }
+    
+    // Fallback for older Node versions
+    return new ReadableStream({
+        start(controller) {
+            nodeStream.on('data', (chunk) => {
+                controller.enqueue(chunk);
+            });
+            nodeStream.on('end', () => {
+                controller.close();
+            });
+            nodeStream.on('error', (err) => {
+                controller.error(err);
+            });
+        },
+        cancel() {
+            nodeStream.destroy();
+        }
+    });
+}
+
+/**
  * GET /api/videos/[filename]
- * Stream video with Range support for seeking
+ * Stream video with proper HTTP Range support for seeking
+ * Uses Node.js streams to avoid loading entire file into memory
  */
 export async function GET(request, { params }) {
     const logger = logRoute('/api/videos/[filename]', 'GET');
@@ -143,28 +202,39 @@ export async function GET(request, { params }) {
         }
         
         // 8. Get file stats
-        const stats = await stat(filepath);
+        const stats = await statAsync(filepath);
         const fileSize = stats.size;
         
-        // 9. Get Range header
+        // 9. Get Range header and MIME type
         const range = request.headers.get('range');
-        const rangeData = parseRange(range, fileSize);
-        
-        // 10. Get MIME type from lesson or default
         const lesson = accessCheck.lesson;
         const mimeType = lesson.videoMimeType || 'video/mp4';
         
-        // 11. Handle Range request (for seeking)
-        if (rangeData) {
+        // 10. Handle Range request (for seeking)
+        if (range) {
+            const rangeData = parseRange(range, fileSize);
+            
+            // Invalid range - return 416
+            if (!rangeData) {
+                logger.failure(new Error('Invalid range'));
+                return new NextResponse(null, {
+                    status: 416, // Range Not Satisfiable
+                    headers: {
+                        'Content-Range': `bytes */${fileSize}`,
+                        'Accept-Ranges': 'bytes',
+                    },
+                });
+            }
+            
             const { start, end } = rangeData;
             const chunkSize = (end - start) + 1;
             
-            // Read file chunk
-            const file = await readFile(filepath);
-            const chunk = file.slice(start, end + 1);
+            // Create read stream for the requested range
+            const nodeStream = createReadStream(filepath, { start, end });
+            const webStream = nodeStreamToWeb(nodeStream);
             
             logger.success();
-            return new NextResponse(chunk, {
+            return new Response(webStream, {
                 status: 206, // Partial Content
                 headers: {
                     'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -176,11 +246,12 @@ export async function GET(request, { params }) {
             });
         }
         
-        // 12. Full file request
-        const file = await readFile(filepath);
+        // 11. Full file request - stream entire file
+        const nodeStream = createReadStream(filepath);
+        const webStream = nodeStreamToWeb(nodeStream);
         
         logger.success();
-        return new NextResponse(file, {
+        return new Response(webStream, {
             status: 200,
             headers: {
                 'Content-Length': fileSize.toString(),
@@ -199,4 +270,3 @@ export async function GET(request, { params }) {
         );
     }
 }
-

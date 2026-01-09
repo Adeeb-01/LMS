@@ -34,21 +34,24 @@ const courseSchema = new Schema({
 
     testimonials:[{  type: Schema.ObjectId, ref: "Testimonial" }],
 
-    quizSet:{        
-        type: Schema.ObjectId
-    },
     learning:{
         type: [String]
     },  
     createdOn:{
         required: true,
-        default: Date.now(),
+        default: Date.now,
         type: Date
     },    
     modifiedOn:{
         required: true,
-        default: Date.now(),
+        default: Date.now,
         type: Date
     },
+});
+
+// Update modifiedOn before saving
+courseSchema.pre('save', function(next) {
+    this.modifiedOn = new Date();
+    next();
 });
 export const Course = mongoose.models.Course ?? mongoose.model("Course",courseSchema);

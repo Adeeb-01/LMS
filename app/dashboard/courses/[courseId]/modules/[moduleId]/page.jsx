@@ -12,9 +12,25 @@ import { getModule } from "@/queries/modules";
 import { replaceMongoIdInArray } from "@/lib/convertData";
 import { ObjectId } from "mongoose";
 import { ModuleActions } from "./_components/module-action";
+import { getLoggedInUser } from "@/lib/loggedin-user";
+import { assertInstructorOwnsModule } from "@/lib/authorization";
+import { notFound } from "next/navigation";
 
 const Module = async ({ params }) => {
-  const { courseId, moduleId } = await params; // ✅ مهم
+  const { courseId, moduleId } = await params;
+  
+  // Security: Verify module ownership before allowing edit access
+  const loggedInUser = await getLoggedInUser();
+  if (!loggedInUser) {
+    notFound();
+  }
+  
+  try {
+    await assertInstructorOwnsModule(moduleId, loggedInUser.id, loggedInUser);
+  } catch (error) {
+    // If user doesn't own this module, return 404 to prevent info leakage
+    notFound();
+  }
 
   // Sanitize fucntion for handle ObjectID and Buffer
   function sanitizeData(data) {

@@ -1,3 +1,5 @@
+"use client";
+
 import { IconBadge } from "@/components/icon-badge";
 import {
   Dialog,
@@ -16,14 +18,17 @@ import { LessonTitleForm } from "./lesson-title-form";
 import { LessonDescriptionForm } from "./lesson-description-form";
 import { LessonAccessForm } from "./lesson-access-form";
 import { VideoUrlForm } from "./video-url-form";
-import { CourseActions } from "../../../_components/course-action";
 import { LessonActions } from "./lesson-action";
+import { useRouter } from "next/navigation";
 
-export const LessonModal = ({ open, setOpen,courseId,lesson,moduleId }) => {
+export const LessonModal = ({ open, setOpen, courseId, lesson, moduleId }) => {
+  const router = useRouter();
 
-  function postDelete(){
+  function handleDelete() {
+    // Close the modal
     setOpen(false);
-    onclose();
+    // Refresh the page to update the lesson list
+    router.refresh();
   }
   
   return (
@@ -53,7 +58,7 @@ export const LessonModal = ({ open, setOpen,courseId,lesson,moduleId }) => {
                 Back to course setup
               </Link>
               <div className="flex items-center justify-end">
-                <LessonActions lesson={lesson} moduleId={moduleId} onDelete={postDelete} />
+                <LessonActions lesson={lesson} moduleId={moduleId} onDelete={handleDelete} />
               </div>
             </div>
           </div>

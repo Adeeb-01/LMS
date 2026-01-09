@@ -235,9 +235,12 @@ if (result.ok) {
 
 ## 📝 Notes
 
-1. **Model Naming**: The Quiz model uses `QuizNew` to avoid conflicts. You can rename after migration.
+1. **Model Naming**: 
+   - **New System**: Exports `QuizNew` from `model/quiz-model.js` (collection: "QuizNew")
+   - **Legacy System**: Exports `LegacyQuiz` from `model/quizzes-model.js` (collection: "Quiz")
+   - This naming convention prevents import confusion and Mongoose model overwrite errors.
 
-2. **Existing System**: The old quiz system (QuizSet) remains intact. The new system can coexist.
+2. **Existing System**: The legacy quiz system (`Quizset` + `LegacyQuiz`) remains intact. The new system coexists without conflicts.
 
 3. **UI Implementation**: The backend is complete. UI components can be built using the server actions.
 

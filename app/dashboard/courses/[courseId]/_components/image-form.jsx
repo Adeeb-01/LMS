@@ -14,6 +14,7 @@ export const ImageForm = ({ initialData, courseId }) => {
 
   const [files, setFiles] = useState([]); // ✅ always array
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // ✅ don't mutate props: keep url in state
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
@@ -33,70 +34,52 @@ export const ImageForm = ({ initialData, courseId }) => {
   useEffect(() => {
     if (!files?.length || !files?.[0]) return;
 
- async function uploadFile() {
-  try {
-    const formData = new FormData();
-    formData.append("files", files[0]);
-    formData.append("destination", "./public/assets/images/courses");
-    formData.append("courseId", courseId);
-
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    let errorMessage = "Upload failed";
-    if (!response.ok) {
+    async function uploadFile() {
+      setIsUploading(true);
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } catch {
-        const resultText = await response.text();
-        errorMessage = resultText || errorMessage;
+        const formData = new FormData();
+        formData.append("files", files[0]);
+        formData.append("destination", "./public/assets/images/courses");
+        formData.append("courseId", courseId);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        // Parse JSON response
+        const result = await response.json();
+
+        if (!response.ok) {
+          const errorMessage = result.error || "Upload failed";
+          toast.error(errorMessage);
+          setFiles([]);
+          return;
+        }
+
+        // Use path from API response (server already updated the course)
+        const newUrl = result.path || `/assets/images/courses/${result.filename}`;
+        
+        if (!result.filename && !result.path) {
+          toast.error("Upload succeeded but file path is missing");
+          setFiles([]);
+          return;
+        }
+
+        // Update local UI state
+        setImageUrl(newUrl);
+        
+        toast.success("Image uploaded successfully");
+        setFiles([]);
+        setIsEditing(false);
+        router.refresh();
+      } catch (e) {
+        toast.error(e?.message || "Something went wrong");
+        setFiles([]);
+      } finally {
+        setIsUploading(false);
       }
-      toast.error(errorMessage);
-      setFiles([]);
-      return;
     }
-
-    // Use filename from API response if available
-    const fileName = result.filename || 
-      files?.[0]?.name ||
-      files?.[0]?.path?.split?.("/").pop?.() ||
-      files?.[0]?.path?.split?.("\\").pop?.();
-
-    if (!fileName) {
-      toast.error("Uploaded but file name is missing");
-      setFiles([]);
-      return;
-    }
-
-    // ✅ تحديث الواجهة - use path from API response or construct from filename
-    const newUrl = result.path || `/assets/images/courses/${fileName}`;
-    setImageUrl(newUrl);
-
-    // ✅ حفظ الصورة في قاعدة البيانات
-    const saveRes = await fetch(`/api/courses/${courseId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ thumbnail: fileName }),
-    });
-
-    if (!saveRes.ok) {
-      const msg = await saveRes.text();
-      toast.error(msg || "Uploaded but failed to save course image");
-      return;
-    }
-
-    toast.success("Image uploaded & saved");
-    setFiles([]);
-    setIsEditing(false);
-    router.refresh();
-  } catch (e) {
-    toast.error(e?.message || "Something went wrong");
-  }
-}
-
 
     uploadFile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,7 +91,7 @@ export const ImageForm = ({ initialData, courseId }) => {
     <div className="mt-6 border bg-gray-50 rounded-md p-4">
       <div className="font-medium flex items-center justify-between">
         Course Image
-        <Button variant="ghost" onClick={toggleEdit}>
+        <Button variant="ghost" onClick={toggleEdit} disabled={isUploading}>
           {isEditing && <>Cancel</>}
           {!isEditing && !imageUrl && (
             <>
@@ -146,6 +129,7 @@ export const ImageForm = ({ initialData, courseId }) => {
         <div>
           <UploadDropzone
             onUpload={(incoming) => setFiles(Array.isArray(incoming) ? incoming : [incoming])}
+            disabled={isUploading}
           />
           <div className="text-xs text-muted-foreground mt-4">
             16:9 aspect ratio recommended

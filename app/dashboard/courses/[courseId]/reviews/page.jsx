@@ -3,10 +3,24 @@ import { columns } from "./_components/columns";
 import { DataTable } from "./_components/data-table";
 import { getInstructorDashboardData, REVIEW_DATA } from "@/lib/dashboard-helper";
 import { ObjectId } from "mongoose";
+import { getLoggedInUser } from "@/lib/loggedin-user";
+import { getCourseWithOwnershipCheck } from "@/lib/authorization";
+import { notFound } from "next/navigation";
 
 const ReviewsPage = async ({ params }) => {
   const { courseId } = await params;
-  const course = await getCourseDetails(courseId);
+  
+  // Security: Verify ownership before showing reviews
+  const loggedInUser = await getLoggedInUser();
+  if (!loggedInUser) {
+    notFound();
+  }
+  
+  const course = await getCourseWithOwnershipCheck(courseId, loggedInUser.id, loggedInUser);
+  
+  if (!course) {
+    notFound();
+  }
   const rawReviewData = await getInstructorDashboardData(REVIEW_DATA);
   //console.log(rawReviewData);
 

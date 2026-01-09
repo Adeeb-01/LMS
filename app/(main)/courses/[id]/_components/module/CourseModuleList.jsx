@@ -10,8 +10,7 @@ import {
 import { Radio } from "lucide-react";
 
 import { Video } from "lucide-react";
-import { NotepadText } from "lucide-react";
-import { FileQuestion } from "lucide-react"; 
+import { NotepadText } from "lucide-react"; 
 import CourseLessonList from './CourseLessonList';
 
 const CourseModuleList = ({module}) => {
@@ -31,10 +30,6 @@ const CourseModuleList = ({module}) => {
             <Video className="w-4 h-4" />
             {(totalDuration/3660).toPrecision(2)} Hours
         </span> 
-        <span className="flex items-center gap-1.5">
-            <FileQuestion className="w-4 h-4" />
-            10 Quiz
-        </span>
         <span className="flex items-center gap-1.5">
             <Radio className="w-4 h-4" />1 Live Class
         </span>

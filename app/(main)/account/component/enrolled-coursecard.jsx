@@ -24,31 +24,11 @@ const EnrolledCourseCard = async ({ enrollment }) => {
   const totalModuleCount = courseDetails?.modules?.length || 0;
 
   // Total Completed Modules
-  const totalCompletedModules = report?.totalCompletedModeules?.length || 0;
+  const totalCompletedModules = report?.totalCompletedModules?.length || 0;
 
   // Total Progress
   const totalProgress =
     totalModuleCount > 0 ? (totalCompletedModules / totalModuleCount) * 100 : 0;
-
-  // Get all Quizzes and Assignments
-  const quizzes = report?.quizAssessment?.assessments || [];
-  const totalQuizzes = quizzes.length;
-
-  // Find attempted quizzes
-  const quizzesTaken = quizzes.filter((q) => q?.attempted);
-
-  // find how many quizzes answered correct
-  const totalCorrect = quizzesTaken
-    .map((quiz) => {
-      const items = quiz?.options || [];
-      return items.filter((o) => o?.isCorrect === true && o?.isSelected === true);
-    })
-    .filter((elem) => elem.length > 0)
-    .flat();
-
-  const marksFromQuizzes = totalCorrect.length * 5;
-  const otherMarks = report?.quizAssessment?.otherMarks ?? 0;
-  const totalMarks = marksFromQuizzes + otherMarks;
 
   // ✅ FIX: image must come from enrollment.course, not "course"
   const courseImage = enrollment?.course?.thumbnail
@@ -94,41 +74,6 @@ const EnrolledCourseCard = async ({ enrollment }) => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-md md:text-sm font-medium text-slate-700">
-              Total Quizzes: {totalQuizzes}
-            </span>
-            <div className="text-md md:text-sm font-medium text-slate-700">
-              Quiz taken <Badge variant="success">{quizzesTaken.length}</Badge>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-md md:text-sm font-medium text-slate-700">
-              Mark from Quizzes
-            </span>
-            <span className="text-md md:text-sm font-medium text-slate-700">
-              {marksFromQuizzes}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-md md:text-sm font-medium text-slate-700">
-              Others
-            </span>
-            <span className="text-md md:text-sm font-medium text-slate-700">
-              {otherMarks}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-md md:text-sm font-medium text-slate-700">
-            Total Marks
-          </span>
-          <span className="text-md md:text-sm font-medium text-slate-700">
-            {totalMarks}
-          </span>
         </div>
 
         <CourseProgress size="sm" value={totalProgress} />
