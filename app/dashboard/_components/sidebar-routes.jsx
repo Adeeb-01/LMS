@@ -23,11 +23,11 @@ const routes = [
     label: "Add Course",
     href: "/dashboard/courses/add",
   },
-  {
-    icon: Radio,
-    label: "Lives",
-    href: "/dashboard/lives",
-  },
+  // {
+  //   icon: Radio,
+  //   label: "Lives",
+  //   href: "/dashboard/lives",
+  // },
 ];
 
 export const SidebarRoutes = () => {

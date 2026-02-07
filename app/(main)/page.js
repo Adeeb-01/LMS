@@ -59,7 +59,7 @@ const getCachedTestimonials = unstable_cache(
     return await getFeaturedTestimonials(6);
   },
   ['featured-testimonials'],
-  { revalidate: 3600 }
+  { revalidate: 1 }
 );
 
 const HomePage = async () => {
