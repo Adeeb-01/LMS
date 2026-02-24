@@ -83,6 +83,8 @@ const CourseDetailsIntro = async ({ course }) => {
                     height={463}
                     src={courseImg}
                     alt={course?.title || "Course image"}
+                    sizes="(max-width: 1024px) 100vw, 768px"
+                    priority
                   />
                 </div>
               </div>

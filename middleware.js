@@ -1,94 +1,86 @@
-import { auth } from "@/auth";
+import { auth } from "@/auth-edge";
 import { NextResponse } from "next/server";
-import { PUBLIC_ROUTES, LOGIN, ROOT} from "@/lib/routes";
+import { PUBLIC_ROUTES, LOGIN, ROOT } from "@/lib/routes";
 import { ROLES } from "@/lib/permissions";
 import { getRedirectUrlByRole } from "@/lib/auth-redirect";
+import { addSecurityHeaders } from "@/lib/security-headers";
+
+/**
+ * Role-based route protection (OWASP: enforce at edge).
+ * Path prefix -> array of allowed roles. Empty array = no role restriction (any authenticated user).
+ * Unlisted protected paths are denied for unauthenticated users by the generic auth check below.
+ */
+const ROLE_PROTECTED_ROUTES = [
+    { prefix: '/admin', allowedRoles: [ROLES.ADMIN] },
+    { prefix: '/dashboard', allowedRoles: [ROLES.INSTRUCTOR, ROLES.ADMIN] },
+];
+
+function isPublicRoute(pathname) {
+    return pathname === ROOT || PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+function getRoleRestriction(pathname) {
+    return ROLE_PROTECTED_ROUTES.find(({ prefix }) => pathname.startsWith(prefix));
+}
 
 export default auth((req) => {
     const { nextUrl } = req;
-    
+    const pathname = nextUrl.pathname;
+
     const isAuthenticated = !!req.auth;
     const user = req.auth?.user;
     const userRole = user?.role;
     const userStatus = user?.status;
 
-    const isPublicRoute = PUBLIC_ROUTES.some((route) => nextUrl.pathname.startsWith(route)) || nextUrl.pathname === ROOT;
-
-    // Redirect logged-in users away from login page
-    if (nextUrl.pathname === LOGIN && isAuthenticated && userRole) {
-        const redirectUrl = getRedirectUrlByRole(userRole);
-        return NextResponse.redirect(new URL(redirectUrl, nextUrl));
+    // ----- 1. Logged-in users: redirect away from login/register -----
+    if (pathname === LOGIN && isAuthenticated && userRole) {
+        return addSecurityHeaders(NextResponse.redirect(new URL(getRedirectUrlByRole(userRole), nextUrl)), req);
+    }
+    if ((pathname.startsWith('/register/student') || pathname.startsWith('/register/instructor')) && isAuthenticated && userRole) {
+        return addSecurityHeaders(NextResponse.redirect(new URL(getRedirectUrlByRole(userRole), nextUrl)), req);
     }
 
-    // Check if user is active (if authenticated)
-    // Only check if status exists and is not 'active' (handle null/undefined as active for legacy users)
+    // ----- 2. Authenticated but inactive/suspended: force re-auth -----
     if (isAuthenticated && userStatus && userStatus !== 'active') {
-        // Inactive or suspended users should be logged out
-        // Redirect to login with error message
         const loginUrl = new URL(LOGIN, nextUrl);
         loginUrl.searchParams.set('error', 'account_inactive');
-        return NextResponse.redirect(loginUrl);
-    }
-    
-    // Redirect logged-in users away from registration pages
-    if ((nextUrl.pathname.startsWith('/register/student') || 
-         nextUrl.pathname.startsWith('/register/instructor')) && 
-        isAuthenticated && userRole) {
-        const redirectUrl = getRedirectUrlByRole(userRole);
-        return NextResponse.redirect(new URL(redirectUrl, nextUrl));
+        return addSecurityHeaders(NextResponse.redirect(loginUrl), req);
     }
 
-    // Check authentication for protected routes
-    if (!isAuthenticated && !isPublicRoute) {
+    // ----- 3. Require auth for any non-public route -----
+    if (!isAuthenticated && !isPublicRoute(pathname)) {
         const loginUrl = new URL(LOGIN, nextUrl);
-        // Preserve the original URL for redirect after login
-        loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
-        return NextResponse.redirect(loginUrl);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return addSecurityHeaders(NextResponse.redirect(loginUrl), req);
     }
 
-    // Protect admin routes - only active admins can access
-    if (nextUrl.pathname.startsWith('/admin')) {
+    // ----- 4. RBAC: strict role check at edge (before page/components run) -----
+    const roleRestriction = getRoleRestriction(pathname);
+    if (roleRestriction) {
+        const { allowedRoles } = roleRestriction;
         if (!isAuthenticated) {
             const loginUrl = new URL(LOGIN, nextUrl);
-            loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
-            return NextResponse.redirect(loginUrl);
+            loginUrl.searchParams.set('callbackUrl', pathname);
+            return addSecurityHeaders(NextResponse.redirect(loginUrl), req);
         }
-        // Check status - only if status exists and is not 'active'
         if (userStatus && userStatus !== 'active') {
             const loginUrl = new URL(LOGIN, nextUrl);
             loginUrl.searchParams.set('error', 'account_inactive');
-            return NextResponse.redirect(loginUrl);
+            return addSecurityHeaders(NextResponse.redirect(loginUrl), req);
         }
-        if (userRole !== ROLES.ADMIN) {
-            return NextResponse.redirect(new URL('/', nextUrl));
-        }
-    }
-
-    // Protect dashboard routes - only active instructors/admins can access
-    if (nextUrl.pathname.startsWith('/dashboard')) {
-        if (!isAuthenticated) {
-            const loginUrl = new URL(LOGIN, nextUrl);
-            loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
-            return NextResponse.redirect(loginUrl);
-        }
-        // Check status - only if status exists and is not 'active'
-        if (userStatus && userStatus !== 'active') {
-            const loginUrl = new URL(LOGIN, nextUrl);
-            loginUrl.searchParams.set('error', 'account_inactive');
-            return NextResponse.redirect(loginUrl);
-        }
-        if (userRole !== ROLES.INSTRUCTOR && userRole !== ROLES.ADMIN) {
-            return NextResponse.redirect(new URL('/', nextUrl));
+        const hasRole = allowedRoles.includes(userRole);
+        if (!hasRole) {
+            return addSecurityHeaders(NextResponse.redirect(new URL(ROOT, nextUrl)), req);
         }
     }
 
-    return NextResponse.next();
+    // ----- 5. Apply OWASP security headers to all matching responses -----
+    return addSecurityHeaders(NextResponse.next(), req);
 });
 
 export const config = {
     matcher: [
-      // Exclude ALL /api routes, Next.js internal routes, and static files
-      "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
-      "/", // Include the root route
+        "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+        "/",
     ],
-  };
+};

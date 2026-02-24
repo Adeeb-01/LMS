@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import MainNav from '@/components/main-nav';
 import SiteFooter from '@/components/site-footer';
 import React from 'react';

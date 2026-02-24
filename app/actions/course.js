@@ -1,26 +1,33 @@
 "use server"
 
-import { getLoggedInUser } from "@/lib/loggedin-user"
+import { getLoggedInUser } from "@/lib/loggedin-user";
 import { Course } from "@/model/course-model";
 import { create } from "@/queries/courses";
+import { courseSchema } from "@/lib/validations";
 import mongoose from "mongoose";
 import { dbConnect } from "@/service/mongo";
 
-export async function createCourse(data){
+/** Mass assignment: only allow title, description, price, category, thumbnail. Instructor set server-side. */
+export async function createCourse(data) {
     await dbConnect();
     try {
         const loggedinUser = await getLoggedInUser();
         if (!loggedinUser) {
             throw new Error('Unauthorized: Please log in');
         }
-        data["instructor"] = loggedinUser?.id
-        const course = await create(data);
+        const parsed = courseSchema.safeParse(data);
+        if (!parsed.success) {
+            throw new Error('Validation failed for course data');
+        }
+        const courseData = { ...parsed.data, instructor: loggedinUser.id };
+        const course = await create(courseData);
         return course;
     } catch (error) {
         throw new Error(error?.message || 'Failed to create course');
     }
 }
- 
+
+/** BOLA: only course owner can update. Mass assignment: only whitelisted fields. */
 export async function updateCourse(courseId, dataToUpdate) {
     await dbConnect();
     try {
@@ -28,18 +35,21 @@ export async function updateCourse(courseId, dataToUpdate) {
         if (!user) {
             throw new Error('Unauthorized: Please log in');
         }
-        
-        const course = await Course.findById(courseId);
+        const course = await Course.findById(courseId).select('instructor').lean();
         if (!course) {
             throw new Error('Course not found');
         }
-        
-        // Check if user is the instructor
         if (course.instructor.toString() !== user.id) {
             throw new Error('Forbidden: You do not have permission to update this course');
         }
-        
-        await Course.findByIdAndUpdate(courseId, dataToUpdate);
+        const updateSchema = courseSchema.partial().strict();
+        const parsed = updateSchema.safeParse(dataToUpdate);
+        if (!parsed.success) {
+            throw new Error('Validation failed for course update');
+        }
+        const allowed = parsed.data;
+        if (Object.keys(allowed).length === 0) return;
+        await Course.findByIdAndUpdate(courseId, { $set: allowed }, { runValidators: true });
     } catch (error) {
         throw new Error(error?.message || 'Failed to update course');
     }

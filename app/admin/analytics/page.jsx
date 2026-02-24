@@ -1,11 +1,27 @@
+import dynamic from "next/dynamic";
 import { getAdminUser } from "@/lib/admin-utils";
-import { unstable_cache } from "next/cache";
 import {
     getEnrollmentAnalytics,
     getRevenueAnalytics,
     getTopCourses
 } from "@/queries/admin";
-import AnalyticsCharts from "./_components/analytics-charts";
+
+// Lazy load analytics (tabs, cards, bar UI) — only on admin analytics route
+const AnalyticsCharts = dynamic(
+  () => import("./_components/analytics-charts"),
+  {
+    loading: () => (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 rounded-lg bg-muted" />
+          ))}
+        </div>
+        <div className="h-80 rounded-lg bg-muted" />
+      </div>
+    ),
+  }
+);
 
 export const metadata = {
     title: "Analytics - Admin",

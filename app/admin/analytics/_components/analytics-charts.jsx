@@ -1,22 +1,36 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, Users, DollarSign, Award } from "lucide-react";
 
 export default function AnalyticsCharts({ enrollmentData, revenueData, topCourses }) {
-    // Ensure data is always an array
-    const safeEnrollmentData = Array.isArray(enrollmentData) ? enrollmentData : [];
-    const safeRevenueData = Array.isArray(revenueData) ? revenueData : [];
-    const safeTopCourses = Array.isArray(topCourses) ? topCourses : [];
-    
-    // Simple chart representation (you can integrate Chart.js, Recharts, etc.)
-    const maxEnrollments = safeEnrollmentData.length > 0 
-        ? Math.max(...safeEnrollmentData.map(d => d.count || 0), 1)
-        : 1;
-    const maxRevenue = safeRevenueData.length > 0
-        ? Math.max(...safeRevenueData.map(d => d.revenue || 0), 1)
-        : 1;
+    const safeEnrollmentData = useMemo(
+        () => (Array.isArray(enrollmentData) ? enrollmentData : []),
+        [enrollmentData]
+    );
+    const safeRevenueData = useMemo(
+        () => (Array.isArray(revenueData) ? revenueData : []),
+        [revenueData]
+    );
+    const safeTopCourses = useMemo(
+        () => (Array.isArray(topCourses) ? topCourses : []),
+        [topCourses]
+    );
+
+    const maxEnrollments = useMemo(
+        () => (safeEnrollmentData.length > 0
+            ? Math.max(...safeEnrollmentData.map((d) => d.count || 0), 1)
+            : 1),
+        [safeEnrollmentData]
+    );
+    const maxRevenue = useMemo(
+        () => (safeRevenueData.length > 0
+            ? Math.max(...safeRevenueData.map((d) => d.revenue || 0), 1)
+            : 1),
+        [safeRevenueData]
+    );
 
     return (
         <div className="space-y-6">

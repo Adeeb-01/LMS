@@ -1,8 +1,23 @@
+/**
+ * NextAuth v5 config – OWASP-aligned session & cookie security.
+ * EDGE-ONLY: This file is used by middleware (via auth-edge.js). It must contain
+ * ONLY Edge-compatible code. Do NOT import mongoose, models, service/mongo.js, or
+ * any Node.js-only modules here.
+ * - JWT strategy with bounded maxAge and rolling sessions (updateAge).
+ * - Cookies: HttpOnly, Secure in prod, SameSite to mitigate XSS/CSRF.
+ */
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Session lifetime: default 7 days; use SESSION_MAX_AGE_SECONDS to override (e.g. 2592000 = 30 days).
+const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE_SECONDS) || 7 * 24 * 60 * 60; // 7 days
+const SESSION_UPDATE_AGE = 24 * 60 * 60; // 24h – refresh JWT if older (rolling session)
+
 export const authConfig = {
     session: {
         strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-        updateAge: 24 * 60 * 60, // 24 hours
+        maxAge: SESSION_MAX_AGE,
+        updateAge: SESSION_UPDATE_AGE,
     },
     pages: {
         signIn: '/login',
@@ -19,7 +34,7 @@ export const authConfig = {
                 token.status = user.status;
                 token.image = user.image;
             }
-            
+
             // Update session when profile is updated (via signIn with trigger: "update")
             if (trigger === "update" && session) {
                 if (session.name) token.name = session.name;
@@ -28,7 +43,7 @@ export const authConfig = {
                 if (session.status) token.status = session.status;
                 if (session.image !== undefined) token.image = session.image;
             }
-            
+
             return token;
         },
         async session({ session, token }) {
@@ -45,39 +60,41 @@ export const authConfig = {
     },
     cookies: {
         sessionToken: {
-            name: process.env.NODE_ENV === 'production' 
+            name: isProduction
                 ? `__Secure-next-auth.session-token`
                 : `next-auth.session-token`,
             options: {
                 httpOnly: true,
-                sameSite: 'lax', // 'lax' for OAuth compatibility, 'strict' is more secure but breaks OAuth
+                sameSite: 'lax', // 'strict' if you never use OAuth callbacks from external sites
                 path: '/',
-                secure: process.env.NODE_ENV === 'production',
-                // maxAge is handled by session.maxAge
+                secure: isProduction,
+                maxAge: SESSION_MAX_AGE, // Explicit cookie expiry aligned with session (OWASP)
             },
         },
         callbackUrl: {
-            name: process.env.NODE_ENV === 'production'
+            name: isProduction
                 ? `__Secure-next-auth.callback-url`
                 : `next-auth.callback-url`,
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
                 path: '/',
-                secure: process.env.NODE_ENV === 'production',
+                secure: isProduction,
+                maxAge: 60 * 10, // 10 minutes for callback URL
             },
         },
         csrfToken: {
-            name: process.env.NODE_ENV === 'production'
+            name: isProduction
                 ? `__Host-next-auth.csrf-token`
                 : `next-auth.csrf-token`,
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
                 path: '/',
-                secure: process.env.NODE_ENV === 'production',
+                secure: isProduction,
+                maxAge: 60 * 60 * 24, // 24h
             },
         },
     },
     providers: [],
-}
+};

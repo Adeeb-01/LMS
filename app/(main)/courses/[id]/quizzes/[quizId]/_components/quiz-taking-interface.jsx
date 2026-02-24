@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,14 +135,17 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         return () => clearTimeout(autosaveTimer);
     }, [answers, attemptId, isPreview]);
 
-    const formatTime = (seconds) => {
+    const formatTime = useCallback((seconds) => {
         if (seconds === null) return null;
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, "0")}`;
-    };
+    }, []);
 
-    const currentQuestion = shuffledQuestions[currentIndex];
+    const currentQuestion = useMemo(
+        () => shuffledQuestions[currentIndex],
+        [shuffledQuestions, currentIndex]
+    );
 
     const handleAnswerChange = useCallback((questionId, value, isMultiple = false) => {
         setAnswers((prev) => {

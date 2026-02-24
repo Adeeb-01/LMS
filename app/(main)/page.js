@@ -289,6 +289,7 @@ const HomePage = async () => {
                       width={100}
                       height={100}
                       className="object-contain"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
                     />
                     <h3 className="font-bold text-center">{category.title}</h3>
                   </div>

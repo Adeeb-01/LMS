@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { auth } from "@/auth";
 import { getCourseDetails } from "@/queries/courses";
 import { getUserByEmail } from "@/queries/users";
@@ -120,11 +121,13 @@ export default async function MockCheckoutPage({ searchParams }) {
             </div>
             
             {course.thumbnail && (
-              <div className="aspect-video rounded-md overflow-hidden bg-muted">
-                <img 
-                  src={course.thumbnail} 
+              <div className="relative aspect-video rounded-md overflow-hidden bg-muted">
+                <Image
+                  src={course.thumbnail}
                   alt={course.title}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               </div>
             )}

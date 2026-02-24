@@ -1,8 +1,9 @@
-"use client"
+"use client";
+
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import ReactPlayer from "react-player/youtube";
-import { AlertCircle, Loader2, Lock, VideoOff } from "lucide-react";
+import { AlertCircle, Loader2, VideoOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -14,136 +15,94 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     const [videoError, setVideoError] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const videoRef = useRef(null);
-
     const router = useRouter();
 
+    const isLocalVideo = useMemo(
+        () => lesson.videoProvider === "local" && !!lesson.videoUrl,
+        [lesson.videoProvider, lesson.videoUrl]
+    );
+    const videoUrl = useMemo(
+        () => (isLocalVideo ? lesson.videoUrl : lesson.video_url),
+        [isLocalVideo, lesson.videoUrl, lesson.video_url]
+    );
+
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            setHasWindow(true);
-        }
+        if (typeof window !== "undefined") setHasWindow(true);
     }, []);
 
     useEffect(() => {
-        async function updateLessonWatch() {
-            const response = await fetch("/api/lesson-watch", {
+        if (!started) return;
+        let cancelled = false;
+        (async () => {
+            const res = await fetch("/api/lesson-watch", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    courseId: courseId,
+                    courseId,
                     lessonId: lesson.id,
                     moduleSlug: module,
                     state: "started",
-                    lastTime: 0
-                })
+                    lastTime: 0,
+                }),
             });
-            if (response.status === 200) {
-                const result = await response.text();
-                console.log(result);
-                setStarted(false);
-            }
-        }
-        started && updateLessonWatch();
+            if (res.status === 200 && !cancelled) setStarted(false);
+        })();
+        return () => { cancelled = true; };
     }, [started, courseId, lesson.id, module]);
 
     useEffect(() => {
-        async function updateLessonWatch() {
-            const response = await fetch("/api/lesson-watch", {
+        if (!ended) return;
+        let cancelled = false;
+        (async () => {
+            const res = await fetch("/api/lesson-watch", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    courseId: courseId,
+                    courseId,
                     lessonId: lesson.id,
                     moduleSlug: module,
                     state: "completed",
-                    lastTime: duration
-                })
+                    lastTime: duration,
+                }),
             });
-            if (response.status === 200) {
-                const result = await response.text();
+            if (res.status === 200 && !cancelled) {
                 setEnded(false);
                 router.refresh();
             }
-        }
-        ended && updateLessonWatch();
+        })();
+        return () => { cancelled = true; };
     }, [ended, courseId, lesson.id, module, duration, router]);
 
-    function handleOnStart() {
-        console.log("handleOnStart");
-        setStarted(true);
-    }
+    const handleOnStart = useCallback(() => setStarted(true), []);
+    const handleOnEnded = useCallback(() => setEnded(true), []);
+    const handleOnDuration = useCallback((dur) => setDuration(dur), []);
 
-    function handleOnEnded() {
-        console.log("handleOnEnded");
-        setEnded(true);
-    }
-
-    function handleOnDuration(dur) {
-        console.log("handleOnDuration", dur);
-        setDuration(dur);
-    }
-
-    function handleOnProgress() {
-        // console.log("handleOnProgress");
-    }
-
-    // Determine video URL: prefer local video, fallback to external
-    const isLocalVideo = lesson.videoProvider === 'local' && lesson.videoUrl;
-    const videoUrl = isLocalVideo ? lesson.videoUrl : lesson.video_url;
-
-    // Handle HTML5 video errors
-    const handleVideoError = async (e) => {
+    const handleVideoError = useCallback(async (e) => {
         setIsLoading(false);
         const video = e.target;
-        
-        if (video.error) {
-            // Check if it's a network/HTTP error
-            try {
-                // Try to fetch the video URL to get the actual error status
-                const response = await fetch(videoUrl, { method: 'HEAD' });
-                
-                if (response.status === 401) {
-                    setVideoError({
-                        type: 'unauthorized',
-                        message: 'Please login to watch this video'
-                    });
-                } else if (response.status === 403) {
-                    setVideoError({
-                        type: 'forbidden',
-                        message: 'You must be enrolled in this course to watch this video'
-                    });
-                } else if (response.status === 404) {
-                    setVideoError({
-                        type: 'notfound',
-                        message: 'Video file not found'
-                    });
-                } else {
-                    setVideoError({
-                        type: 'error',
-                        message: 'Failed to load video. Please try again.'
-                    });
-                }
-            } catch (fetchError) {
-                // If fetch fails, it's likely a network/CORS issue
-                setVideoError({
-                    type: 'error',
-                    message: 'Failed to load video. Please check your connection and try again.'
-                });
+        if (!video?.error) return;
+        try {
+            const response = await fetch(videoUrl, { method: "HEAD" });
+            if (response.status === 401) {
+                setVideoError({ type: "unauthorized", message: "Please login to watch this video" });
+            } else if (response.status === 403) {
+                setVideoError({ type: "forbidden", message: "You must be enrolled in this course to watch this video" });
+            } else if (response.status === 404) {
+                setVideoError({ type: "notfound", message: "Video file not found" });
+            } else {
+                setVideoError({ type: "error", message: "Failed to load video. Please try again." });
             }
+        } catch {
+            setVideoError({ type: "error", message: "Failed to load video. Please check your connection and try again." });
         }
-    };
+    }, [videoUrl]);
 
-    const handleVideoLoaded = () => {
+    const handleVideoLoaded = useCallback(() => {
         setIsLoading(false);
         setVideoError(null);
-    };
+    }, []);
 
-    const handleVideoCanPlay = () => {
-        setIsLoading(false);
-    };
+    const handleVideoCanPlay = useCallback(() => setIsLoading(false), []);
 
     // No video available
     if (!videoUrl) {

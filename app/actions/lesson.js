@@ -1,8 +1,9 @@
 "use server"
- 
+
 import { Lesson } from "@/model/lesson.model";
-import { Module } from "@/model/module.model"; 
+import { Module } from "@/model/module.model";
 import { create } from "@/queries/lessons";
+import { lessonSchema } from "@/lib/validations";
 import mongoose from "mongoose";
 import { getLoggedInUser } from "@/lib/loggedin-user";
 import { dbConnect } from "@/service/mongo";
@@ -66,6 +67,7 @@ export async function reOrderLesson(data){
     }
 }
 
+/** BOLA: ownership via assertInstructorOwnsLesson. Mass assignment: only title, slug, order. */
 export async function updateLesson(lessonId, data) {
     await dbConnect();
     try {
@@ -73,12 +75,16 @@ export async function updateLesson(lessonId, data) {
         if (!user) {
             throw new Error('Unauthorized: Please log in');
         }
-        
-        // Verify ownership via lesson -> module -> course chain
         const { assertInstructorOwnsLesson } = await import('@/lib/authorization');
         await assertInstructorOwnsLesson(lessonId, user.id, user);
-        
-        await Lesson.findByIdAndUpdate(lessonId, data);
+        const updateSchema = lessonSchema.partial().strict();
+        const parsed = updateSchema.safeParse(data);
+        if (!parsed.success) {
+            throw new Error('Validation failed for lesson update');
+        }
+        const allowed = parsed.data;
+        if (Object.keys(allowed).length === 0) return;
+        await Lesson.findByIdAndUpdate(lessonId, { $set: allowed }, { runValidators: true });
     } catch (error) {
         throw new Error(error?.message || 'Failed to update lesson');
     }

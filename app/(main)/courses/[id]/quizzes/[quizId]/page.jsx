@@ -4,7 +4,7 @@ import { getQuizWithQuestions } from "@/queries/quizv2";
 import { getInProgressAttempt } from "@/queries/quizv2";
 import { getCourseDetails } from "@/queries/courses";
 import { notFound, redirect } from "next/navigation";
-import { QuizTakingInterface } from "./_components/quiz-taking-interface";
+import { QuizTakingInterfaceWrapper } from "./_components/quiz-taking-interface-wrapper";
 
 export default async function TakeQuizPage({ params, searchParams }) {
     const { id: courseId, quizId } = await params;
@@ -52,7 +52,7 @@ export default async function TakeQuizPage({ params, searchParams }) {
 
     return (
         <div className="max-w-4xl mx-auto p-6">
-            <QuizTakingInterface
+            <QuizTakingInterfaceWrapper
                 quiz={quizPlain}
                 courseId={courseId}
                 existingAttemptId={existingAttemptId}

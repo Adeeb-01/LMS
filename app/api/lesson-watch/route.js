@@ -3,18 +3,19 @@ import { Watch } from "@/model/watch-model";
 import { getLesson } from "@/queries/lessons";
 import { getModuleBySlug } from "@/queries/modules";
 import { createWatchReport } from "@/queries/reports";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { dbConnect } from "@/service/mongo";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import { getCourseDetails } from "@/queries/courses";
+import { lessonWatchBodySchema } from "@/lib/validations";
 import mongoose from "mongoose";
 
 const STARTED = "started";
 const COMPLETED = "completed";
 
-async function updateReport(userId, courseId, moduleId, lessonId){
+async function updateReport(userId, courseId, moduleId, lessonId) {
     try {
-        await createWatchReport({userId, courseId, moduleId, lessonId})
+        await createWatchReport({ userId, courseId, moduleId, lessonId });
     } catch (error) {
         throw new Error(error);
     }
@@ -22,48 +23,30 @@ async function updateReport(userId, courseId, moduleId, lessonId){
 
 export async function POST(request) {
     await dbConnect();
-    
+
     try {
         const body = await request.json();
-        const {courseId, lessonId, moduleSlug, state, lastTime} = body;
-
-        // Validate input
-        if (!courseId || !lessonId || !moduleSlug || !state) {
+        const parsed = lessonWatchBodySchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { error: 'Missing required fields: courseId, lessonId, moduleSlug, state' },
+                { error: 'Invalid or missing fields: courseId, lessonId, moduleSlug, state required' },
+                { status: 400 }
+            );
+        }
+        const { courseId, lessonId, moduleSlug, state, lastTime } = parsed.data;
+
+        if (!mongoose.Types.ObjectId.isValid(courseId) || !mongoose.Types.ObjectId.isValid(lessonId)) {
+            return NextResponse.json(
+                { error: 'Invalid courseId or lessonId format' },
                 { status: 400 }
             );
         }
 
-        // Validate ObjectId formats
-        if (!mongoose.Types.ObjectId.isValid(courseId)) {
-            return NextResponse.json(
-                { error: 'Invalid courseId format' },
-                { status: 400 }
-            );
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-            return NextResponse.json(
-                { error: 'Invalid lessonId format' },
-                { status: 400 }
-            );
-        }
-
-        // Check authentication
         const loggedinUser = await getLoggedInUser();
         if (!loggedinUser) {
             return NextResponse.json(
                 { error: 'You are not authenticated' },
                 { status: 401 }
-            );
-        }
-
-        // Validate state
-        if (state !== STARTED && state !== COMPLETED) {
-            return NextResponse.json(
-                { error: 'Invalid state. Must be "started" or "completed"' },
-                { status: 400 }
             );
         }
 

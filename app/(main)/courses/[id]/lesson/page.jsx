@@ -1,11 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { VideoPlayer } from "./_components/video-player";
 import { Separator } from "@/components/ui/separator";
 import VideoDescription from "./_components/video-description";
+import { LessonVideoWrapper } from "./_components/lesson-video-wrapper";
 import { getCourseDetails } from "@/queries/courses";
 import { replaceMongoIdInArray, replaceMongoIdInObject } from "@/lib/convertData";
 import { getLessonBySlug } from "@/queries/lessons";
-import { LessonVideo } from "./_components/lesson-video";
 
 const Course = async ({ params, searchParams }) => {
 	const { id } = await params;
@@ -41,7 +39,7 @@ const Course = async ({ params, searchParams }) => {
 		<div>
 			<div className="flex flex-col max-w-4xl mx-auto pb-20">
 				<div className="p-4 w-full">
-					<LessonVideo courseId={id} lesson={lessonToPay} module={defaultModule} />
+					<LessonVideoWrapper courseId={id} lesson={lessonToPay} module={defaultModule} />
 				</div>
 				<div>
 					<div className="p-4 flex flex-col md:flex-row items-center justify-between">

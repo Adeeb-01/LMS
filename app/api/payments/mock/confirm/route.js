@@ -6,18 +6,16 @@ import { Enrollment } from "@/model/enrollment-model";
 import { getCourseDetails } from "@/queries/courses";
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
+import { mockPaymentConfirmSchema } from "@/lib/validations";
 
 /**
  * POST /api/payments/mock/confirm
- * 
  * Creates a mock payment and enrollment for the authenticated user.
- * 
- * Body: { courseId: string, simulateFailure?: boolean }
- * Response: { ok: boolean, referenceId?: string, courseId?: string, error?: string }
+ * Mass assignment: only courseId and simulateFailure allowed (no amount, userId, etc.).
+ * State: course active, paid, not already enrolled.
  */
 export async function POST(request) {
     try {
-        // Authentication check
         const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json(
@@ -28,17 +26,15 @@ export async function POST(request) {
 
         const userId = session.user.id;
         const body = await request.json();
-        const { courseId, simulateFailure = false } = body;
-
-        // Validate courseId
-        if (!courseId) {
+        const parsed = mockPaymentConfirmSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
                 { ok: false, error: 'Course ID is required' },
                 { status: 400 }
             );
         }
+        const { courseId, simulateFailure = false } = parsed.data;
 
-        // Validate ObjectId format
         if (!mongoose.Types.ObjectId.isValid(courseId)) {
             return NextResponse.json(
                 { ok: false, error: 'Invalid course ID format' },
@@ -53,7 +49,6 @@ export async function POST(request) {
             );
         }
 
-        // Ensure DB connection
         await dbConnect();
 
         // Get course details

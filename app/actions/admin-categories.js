@@ -46,25 +46,32 @@ export async function adminCreateCategory(data) {
 }
 
 /**
- * Update category (admin only)
+ * Update category (admin only). Mass assignment: only categoryId, title, description, thumbnail from strict schema.
  */
 export async function adminUpdateCategory(categoryId, data) {
     try {
         await requireAdminPermission('categories:edit');
-        
         const validation = updateCategorySchema.parse({ categoryId, ...data });
         await dbConnect();
-        
+        const { categoryId: id, title, description, thumbnail } = validation;
+        const setFields = {};
+        if (title !== undefined) setFields.title = title;
+        if (description !== undefined) setFields.description = description;
+        if (thumbnail !== undefined) setFields.thumbnail = thumbnail;
+        if (Object.keys(setFields).length === 0) {
+            const category = await Category.findById(id).lean();
+            if (!category) throw new Error('Category not found');
+            revalidatePath('/admin/categories');
+            return { success: true, category: replaceMongoIdInObject(category) };
+        }
         const category = await Category.findByIdAndUpdate(
-            categoryId,
-            { $set: data },
-            { new: true, lean: true }
+            id,
+            { $set: setFields },
+            { new: true, lean: true, runValidators: true }
         );
-        
         if (!category) {
             throw new Error('Category not found');
         }
-        
         revalidatePath('/admin/categories');
         return { success: true, category: replaceMongoIdInObject(category) };
     } catch (error) {

@@ -2,21 +2,26 @@ import { NextResponse } from "next/server";
 import { getLoggedInUser } from "@/lib/loggedin-user";
 import { getAttemptById } from "@/queries/quizv2";
 import { isAdmin, verifyInstructorOwnsCourse } from "@/lib/authorization";
+import mongoose from "mongoose";
 
+/** GET attempt by ID. BOLA: student owns attempt, or instructor/admin owns course. */
 export async function GET(request, { params }) {
     try {
         const { attemptId } = await params;
+        if (!attemptId || !mongoose.Types.ObjectId.isValid(attemptId)) {
+            return NextResponse.json(
+                { ok: false, error: "Invalid attempt ID" },
+                { status: 400 }
+            );
+        }
         const user = await getLoggedInUser();
-        
         if (!user) {
             return NextResponse.json(
                 { ok: false, error: "Unauthorized" },
                 { status: 401 }
             );
         }
-        
         const attempt = await getAttemptById(attemptId);
-        
         if (!attempt) {
             return NextResponse.json(
                 { ok: false, error: "Attempt not found" },

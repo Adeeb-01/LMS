@@ -1,22 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { getSafeImageUrl, shouldUseUnoptimized } from "@/lib/image-utils";
 
 /**
- * Safe Image component that handles errors and external images
- * Use this instead of next/image for images that might fail to load
+ * Safe Image component that handles errors and external images.
+ * Pass sizes when possible for responsive loading (e.g. sizes="(max-width: 768px) 100px, 40px").
  */
 export function SafeImage({ src, alt, fallback = "/assets/images/profile.jpg", ...props }) {
-  const [imgSrc, setImgSrc] = useState(getSafeImageUrl(src, fallback));
+  const [imgSrc, setImgSrc] = useState(() => getSafeImageUrl(src, fallback));
   const useUnoptimized = shouldUseUnoptimized(src);
 
-  const handleError = () => {
-    if (imgSrc !== fallback) {
-      setImgSrc(fallback);
-    }
-  };
+  const handleError = useCallback(() => {
+    setImgSrc((current) => (current !== fallback ? fallback : current));
+  }, [fallback]);
 
   return (
     <Image

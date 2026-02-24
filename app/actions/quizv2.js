@@ -8,6 +8,7 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { assertInstructorOwnsCourse, isAdmin } from "@/lib/authorization";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import { getQuizWithQuestions, getInProgressAttempt } from "@/queries/quizv2";
+import { quizSchema, questionSchema } from "@/lib/validations";
 import mongoose from "mongoose";
 import { updateQuizCompletionInReport } from "./quizProgressv2";
 
@@ -71,7 +72,7 @@ function gradeAttempt(quiz, questions, answers) {
 // ============ INSTRUCTOR/ADMIN ACTIONS ============
 
 /**
- * Create a new quiz
+ * Create a new quiz. BOLA: instructor/admin only. Mass assignment: quizSchema.strict().
  */
 export async function createQuiz(courseId, lessonId, data) {
     await dbConnect();
@@ -80,28 +81,29 @@ export async function createQuiz(courseId, lessonId, data) {
         if (!user) {
             return { ok: false, error: "Unauthorized" };
         }
-        
-        // Verify ownership
         if (!isAdmin(user)) {
             await assertInstructorOwnsCourse(courseId, user.id, { allowAdmin: false });
         }
-        
+        const parsed = quizSchema.safeParse(data);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid quiz data" };
+        }
+        const p = parsed.data;
         const quiz = await Quiz.create({
             courseId: new mongoose.Types.ObjectId(courseId),
             lessonId: lessonId ? new mongoose.Types.ObjectId(lessonId) : null,
-            title: data.title,
-            description: data.description || "",
-            published: data.published || false,
-            required: data.required || false,
-            passPercent: data.passPercent || 70,
-            timeLimitSec: data.timeLimitSec || null,
-            maxAttempts: data.maxAttempts || null,
-            shuffleQuestions: data.shuffleQuestions || false,
-            shuffleOptions: data.shuffleOptions || false,
-            showAnswersPolicy: data.showAnswersPolicy || "after_submit",
+            title: p.title,
+            description: p.description ?? "",
+            published: p.published ?? false,
+            required: p.required ?? false,
+            passPercent: p.passPercent ?? 70,
+            timeLimitSec: p.timeLimitSec ?? null,
+            maxAttempts: p.maxAttempts ?? null,
+            shuffleQuestions: p.shuffleQuestions ?? false,
+            shuffleOptions: p.shuffleOptions ?? false,
+            showAnswersPolicy: p.showAnswersPolicy ?? "after_submit",
             createdBy: user.id
         });
-        
         return { ok: true, quizId: quiz._id.toString() };
     } catch (error) {
         console.error("[CREATE_QUIZ] Error:", error);
@@ -110,7 +112,7 @@ export async function createQuiz(courseId, lessonId, data) {
 }
 
 /**
- * Update quiz
+ * Update quiz. BOLA: ownership via course. Mass assignment: quizSchema.strict().
  */
 export async function updateQuiz(quizId, data) {
     await dbConnect();
@@ -119,33 +121,29 @@ export async function updateQuiz(quizId, data) {
         if (!user) {
             return { ok: false, error: "Unauthorized" };
         }
-        
         const quiz = await Quiz.findById(quizId);
         if (!quiz) {
             return { ok: false, error: "Quiz not found" };
         }
-        
-        // Verify ownership
         if (!isAdmin(user)) {
             await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
         }
-        
-        // Update fields
-        Object.assign(quiz, {
-            title: data.title ?? quiz.title,
-            description: data.description ?? quiz.description,
-            published: data.published ?? quiz.published,
-            required: data.required ?? quiz.required,
-            passPercent: data.passPercent ?? quiz.passPercent,
-            timeLimitSec: data.timeLimitSec ?? quiz.timeLimitSec,
-            maxAttempts: data.maxAttempts ?? quiz.maxAttempts,
-            shuffleQuestions: data.shuffleQuestions ?? quiz.shuffleQuestions,
-            shuffleOptions: data.shuffleOptions ?? quiz.shuffleOptions,
-            showAnswersPolicy: data.showAnswersPolicy ?? quiz.showAnswersPolicy
-        });
-        
+        const parsed = quizSchema.partial().strict().safeParse(data);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid quiz data" };
+        }
+        const p = parsed.data;
+        if (p.title !== undefined) quiz.title = p.title;
+        if (p.description !== undefined) quiz.description = p.description;
+        if (p.published !== undefined) quiz.published = p.published;
+        if (p.required !== undefined) quiz.required = p.required;
+        if (p.passPercent !== undefined) quiz.passPercent = p.passPercent;
+        if (p.timeLimitSec !== undefined) quiz.timeLimitSec = p.timeLimitSec;
+        if (p.maxAttempts !== undefined) quiz.maxAttempts = p.maxAttempts;
+        if (p.shuffleQuestions !== undefined) quiz.shuffleQuestions = p.shuffleQuestions;
+        if (p.shuffleOptions !== undefined) quiz.shuffleOptions = p.shuffleOptions;
+        if (p.showAnswersPolicy !== undefined) quiz.showAnswersPolicy = p.showAnswersPolicy;
         await quiz.save();
-        
         return { ok: true };
     } catch (error) {
         console.error("[UPDATE_QUIZ] Error:", error);
@@ -218,7 +216,7 @@ export async function publishQuiz(quizId, published) {
 }
 
 /**
- * Add question to quiz
+ * Add question to quiz. BOLA: ownership via quiz->course. Mass assignment: questionSchema.strict().
  */
 export async function addQuestion(quizId, questionData) {
     await dbConnect();
@@ -227,35 +225,32 @@ export async function addQuestion(quizId, questionData) {
         if (!user) {
             return { ok: false, error: "Unauthorized" };
         }
-        
         const quiz = await Quiz.findById(quizId);
         if (!quiz) {
             return { ok: false, error: "Quiz not found" };
         }
-        
-        // Verify ownership
         if (!isAdmin(user)) {
             await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
         }
-        
-        // Get max order
+        const parsed = questionSchema.safeParse(questionData);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid question data" };
+        }
+        const p = parsed.data;
         const maxQuestion = await Question.findOne({ quizId: new mongoose.Types.ObjectId(quizId) })
             .sort({ order: -1 })
             .lean();
-        
         const order = maxQuestion ? maxQuestion.order + 1 : 0;
-        
         const question = await Question.create({
             quizId: new mongoose.Types.ObjectId(quizId),
-            type: questionData.type,
-            text: questionData.text,
-            options: questionData.options,
-            correctOptionIds: questionData.correctOptionIds,
-            explanation: questionData.explanation || "",
-            points: questionData.points || 1,
+            type: p.type,
+            text: p.text,
+            options: p.options,
+            correctOptionIds: p.correctOptionIds ?? [],
+            explanation: p.explanation ?? "",
+            points: p.points ?? 1,
             order
         });
-        
         return { ok: true, questionId: question._id.toString() };
     } catch (error) {
         console.error("[ADD_QUESTION] Error:", error);
@@ -264,7 +259,7 @@ export async function addQuestion(quizId, questionData) {
 }
 
 /**
- * Update question
+ * Update question. BOLA: ownership via quiz->course. Mass assignment: questionSchema.partial().strict().
  */
 export async function updateQuestion(questionId, questionData) {
     await dbConnect();
@@ -273,33 +268,29 @@ export async function updateQuestion(questionId, questionData) {
         if (!user) {
             return { ok: false, error: "Unauthorized" };
         }
-        
         const question = await Question.findById(questionId);
         if (!question) {
             return { ok: false, error: "Question not found" };
         }
-        
         const quiz = await Quiz.findById(question.quizId);
         if (!quiz) {
             return { ok: false, error: "Quiz not found" };
         }
-        
-        // Verify ownership
         if (!isAdmin(user)) {
             await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
         }
-        
-        Object.assign(question, {
-            type: questionData.type ?? question.type,
-            text: questionData.text ?? question.text,
-            options: questionData.options ?? question.options,
-            correctOptionIds: questionData.correctOptionIds ?? question.correctOptionIds,
-            explanation: questionData.explanation ?? question.explanation,
-            points: questionData.points ?? question.points
-        });
-        
+        const parsed = questionSchema.partial().strict().safeParse(questionData);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid question data" };
+        }
+        const p = parsed.data;
+        if (p.type !== undefined) question.type = p.type;
+        if (p.text !== undefined) question.text = p.text;
+        if (p.options !== undefined) question.options = p.options;
+        if (p.correctOptionIds !== undefined) question.correctOptionIds = p.correctOptionIds;
+        if (p.explanation !== undefined) question.explanation = p.explanation;
+        if (p.points !== undefined) question.points = p.points;
         await question.save();
-        
         return { ok: true };
     } catch (error) {
         console.error("[UPDATE_QUESTION] Error:", error);
@@ -600,7 +591,7 @@ export async function submitAttempt(attemptId, answers) {
             await updateQuizCompletionInReport(
                 quiz.courseId.toString(),
                 user.id,
-                quiz._id?.toString() || quiz.id || quizId,
+                quiz._id?.toString() || attempt.quizId?.toString(),
                 quiz.lessonId?.toString() || null
             );
         }
