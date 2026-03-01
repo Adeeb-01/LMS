@@ -112,8 +112,8 @@ export async function getStudentQuizStatusMap(courseId, studentId) {
                 status: inProgress ? "in_progress" : (latestSubmitted ? "submitted" : "not_started"),
                 passed: latestSubmitted ? latestSubmitted.passed : false,
                 attemptsUsed: submittedAttempts.length,
-                inProgressAttemptId: inProgress ? inProgress._id.toString() : null,
-                latestAttemptId: latestSubmitted ? latestSubmitted._id.toString() : (inProgress ? inProgress._id.toString() : null),
+                inProgressAttemptId: inProgress ? (inProgress.id ?? inProgress._id?.toString?.()) : null,
+                latestAttemptId: latestSubmitted ? (latestSubmitted.id ?? latestSubmitted._id?.toString?.()) : (inProgress ? (inProgress.id ?? inProgress._id?.toString?.()) : null),
                 lastScore: latestSubmitted ? latestSubmitted.scorePercent : null
             };
         }

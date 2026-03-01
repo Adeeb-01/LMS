@@ -6,10 +6,11 @@ import { cn } from '@/lib/utils';
 import { enrollInFreeCourse } from '@/app/actions/enrollment';
 import { toastSuccess, toastError } from '@/lib/toast-helpers';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 const EnrollCourse = ({ asLink, courseId, coursePrice = null, isFree = false }) => {
     const router = useRouter();
+    const t = useTranslations('Courses');
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState('');
 
@@ -27,13 +28,13 @@ const EnrollCourse = ({ asLink, courseId, coursePrice = null, isFree = false }) 
                     result = await enrollInFreeCourse(data);
 
                     if (result.ok) {
-                        toastSuccess('Enrolled!', 'You have successfully enrolled in this course.');
+                        toastSuccess(t('enrolled'), t('enrollmentSuccess'));
                         // Refresh page to show "Access Course" button
                         router.refresh();
                     } else {
-                        const errorMessage = result.message || 'Failed to enroll. Please try again.';
+                        const errorMessage = result.message || t('enrollFailedMessage');
                         setError(errorMessage);
-                        toastError('Enrollment Failed', errorMessage);
+                        toastError(t('enrollmentFailed'), errorMessage);
                     }
                 } else {
                     // Paid course - redirect to mock checkout
@@ -42,7 +43,7 @@ const EnrollCourse = ({ asLink, courseId, coursePrice = null, isFree = false }) 
             } catch (err) {
                 const errorMessage = err?.message || 'An unexpected error occurred. Please try again.';
                 setError(errorMessage);
-                toastError('Enrollment Failed', errorMessage);
+                toastError(t('enrollmentFailed'), errorMessage);
             }
         });
     };
@@ -63,8 +64,8 @@ const EnrollCourse = ({ asLink, courseId, coursePrice = null, isFree = false }) 
                         className="text-xs text-sky-700 h-7 gap-1"
                         disabled={isPending}
                     >
-                        {isPending ? 'Loading...' : isFreeCourse ? 'Enroll Free' : 'Enroll'}
-                        <ArrowRight className="w-3" />
+                        {isPending ? t('loading') : isFreeCourse ? t('enrollFree') : t('enroll')}
+                        <ArrowRight className="w-3 rtl:rotate-180" />
                     </Button>
                 ) : (
                     <Button
@@ -73,10 +74,10 @@ const EnrollCourse = ({ asLink, courseId, coursePrice = null, isFree = false }) 
                         disabled={isPending}
                     >
                         {isPending
-                            ? 'Processing...'
+                            ? t('processing')
                             : isFreeCourse
-                                ? 'Enroll Free'
-                                : 'Enroll Now'
+                                ? t('enrollFree')
+                                : t('enrollNow')
                         }
                     </Button>
                 )}

@@ -1,5 +1,6 @@
 "use server"
 
+import { replaceMongoIdInObject } from "@/lib/convertData";
 import { Course } from "@/model/course-model";
 import { Module } from "@/model/module.model";
 import { create } from "@/queries/modules";
@@ -17,12 +18,18 @@ export async function createModule(data){
         }
         
         const title = data.get("title");
-        const slug = data.get("slug");
+        let slug = data.get("slug");
         const courseId = data.get("courseId");
         const order = data.get("order");
 
         if (!title || !courseId) {
             throw new Error('Title and course ID are required');
+        }
+
+        // Ensure slug is set - generate from title if missing or empty
+        if (!slug || (typeof slug === 'string' && slug.trim() === '')) {
+            const { getSlug } = await import('@/lib/convertData');
+            slug = getSlug(title) || `module-${Date.now()}`;
         }
 
         const course = await Course.findById(courseId);
@@ -39,7 +46,7 @@ export async function createModule(data){
         course.modules.push(createdModule._id);
         await course.save();
 
-        return createdModule;
+        return replaceMongoIdInObject(createdModule);
         
     } catch (error) {
         throw new Error(error?.message || 'Failed to create module');

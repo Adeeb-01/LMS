@@ -14,6 +14,8 @@ export function ErrorState({
   error,
   onRetry,
   showHomeButton = true,
+  retryLabel,
+  homeLabel,
   className = "",
 }) {
   return (
@@ -37,18 +39,18 @@ export function ErrorState({
           <div className="flex gap-2">
             {onRetry && (
               <Button onClick={onRetry} className="flex-1">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Try again
+                <RefreshCw className="me-2 h-4 w-4" />
+                {retryLabel ?? "Try again"}
               </Button>
             )}
             {showHomeButton && (
               <Button
                 variant="outline"
-                onClick={() => window.location.href = '/'}
+                onClick={() => (window.location.href = "/")}
                 className="flex-1"
               >
-                <Home className="mr-2 h-4 w-4" />
-                Go home
+                <Home className="me-2 h-4 w-4" />
+                {homeLabel ?? "Go home"}
               </Button>
             )}
           </div>

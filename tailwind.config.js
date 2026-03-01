@@ -65,7 +65,8 @@ module.exports = {
   		},
   		fontFamily: {
   			inter: 'var(--font-inter)',
-  			poppins: 'var(--font-poppins)'
+  			poppins: 'var(--font-poppins)',
+  			cairo: ['var(--font-cairo)', 'sans-serif']
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

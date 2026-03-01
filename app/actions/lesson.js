@@ -1,5 +1,6 @@
 "use server"
 
+import { replaceMongoIdInObject } from "@/lib/convertData";
 import { Lesson } from "@/model/lesson.model";
 import { Module } from "@/model/module.model";
 import { create } from "@/queries/lessons";
@@ -39,7 +40,7 @@ export async function createLesson(data){
         module.lessonIds.push(createdLesson._id);
         await module.save();
 
-        return createdLesson;
+        return replaceMongoIdInObject(createdLesson);
         
     } catch (error) {
         throw new Error(error?.message || 'Failed to create lesson');

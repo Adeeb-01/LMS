@@ -1,5 +1,6 @@
 "use server"
 
+import { replaceMongoIdInObject } from "@/lib/convertData";
 import { Course } from "@/model/course-model";
 import { Testimonial } from "@/model/testimonial-model";
 import { getLoggedInUser } from "@/lib/loggedin-user";
@@ -13,8 +14,6 @@ import { dbConnect } from "@/service/mongo";
  */
 export async function createReview(data, loginid, courseId) {
     await dbConnect();
-    const session = await mongoose.startSession();
-    session.startTransaction();
 
     try {
         const loggedinUser = await getLoggedInUser();
@@ -41,38 +40,38 @@ export async function createReview(data, loginid, courseId) {
         }
 
         // Course must exist and be the one requested
-        const course = await Course.findById(courseId).select('_id').session(session);
+        const course = await Course.findById(courseId).select('_id');
         if (!course) {
             throw new Error('Course not found');
         }
 
-        const newTestimonial = await Testimonial.create([{
+        // Create the testimonial
+        const newTestimonial = await Testimonial.create({
             content: review,
             user: loginid,
             courseId,
             rating,
-        }], { session });
+        });
 
-        if (!newTestimonial || newTestimonial.length === 0) {
+        if (!newTestimonial) {
             throw new Error("Failed to create testimonial");
         }
 
+        // Update the course with the new testimonial
         const updateCourse = await Course.findByIdAndUpdate(
             courseId,
-            { $push: { testimonials: newTestimonial[0]._id } },
-            { new: true, session }
+            { $push: { testimonials: newTestimonial._id } },
+            { new: true }
         );
 
         if (!updateCourse) {
+            // If course update fails, delete the testimonial to maintain consistency
+            await Testimonial.findByIdAndDelete(newTestimonial._id);
             throw new Error("Failed to update the course testimonial");
         }
 
-        await session.commitTransaction();
-        return newTestimonial[0];
+        return replaceMongoIdInObject(newTestimonial && typeof newTestimonial.toObject === 'function' ? newTestimonial.toObject() : newTestimonial);
     } catch (error) {
-        await session.abortTransaction();
         throw new Error(error?.message || 'Failed to create review');
-    } finally {
-        session.endSession();
     }
 }

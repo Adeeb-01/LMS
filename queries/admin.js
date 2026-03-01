@@ -322,14 +322,14 @@ export async function updateUserRole(userId, newRole) {
             throw new Error('User not found');
         }
         
-        // Normalize user data
-        const normalizedUser = {
-            ...replaceMongoIdInObject(user),
+        // Normalize user data (client-safe: no Date/ObjectId)
+        const plain = replaceMongoIdInObject(user);
+        const rawDate = user.createdAt || user._id?.getTimestamp?.() || new Date();
+        return {
+            ...plain,
             status: user.status || 'active',
-            createdAt: user.createdAt || user._id?.getTimestamp?.() || new Date()
+            createdAt: rawDate instanceof Date ? rawDate.toISOString() : String(rawDate)
         };
-        
-        return normalizedUser;
     } catch (error) {
         console.error('Error updating user role:', error);
         throw error;
@@ -362,14 +362,14 @@ export async function updateUserStatus(userId, status) {
             throw new Error('User not found');
         }
         
-        // Normalize user data
-        const normalizedUser = {
-            ...replaceMongoIdInObject(user),
+        // Normalize user data (client-safe: no Date/ObjectId)
+        const plain = replaceMongoIdInObject(user);
+        const rawDate = user.createdAt || user._id?.getTimestamp?.() || new Date();
+        return {
+            ...plain,
             status: user.status || 'active',
-            createdAt: user.createdAt || user._id?.getTimestamp?.() || new Date()
+            createdAt: rawDate instanceof Date ? rawDate.toISOString() : String(rawDate)
         };
-        
-        return normalizedUser;
     } catch (error) {
         console.error('Error updating user status:', error);
         throw error;

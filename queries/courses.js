@@ -1,9 +1,10 @@
+import { replaceMongoIdInObject } from "@/lib/convertData";
 import { Category } from "@/model/category-model";
 import { Course } from "@/model/course-model";
 import { Module } from "@/model/module.model";
 import { Testimonial } from "@/model/testimonial-model";
 import { User } from "@/model/user-model";
-import { replaceMongoIdInArray, replaceMongoIdInObject } from "@/lib/convertData";
+import { serializeCourse, serializeCourseList } from "@/lib/schemas/course-schema";
 import { getEnrollmentsForCourse } from "./enrollments";
 import { getTestimonialsForCourse } from "./testimonials";
 import { Lesson } from "@/model/lesson.model";
@@ -25,7 +26,7 @@ export async function getCourseList() {
         path: "modules",
         model: Module
     }).lean();
-    return replaceMongoIdInArray(courses);
+    return serializeCourseList(courses);
 }
 
 // Get featured courses (most popular by enrollments or highest rated)
@@ -53,7 +54,7 @@ export async function getFeaturedCourses(limit = 8) {
         .sort({ createdAt: -1 }) // Newest first, can be changed to popularity
         .limit(limit)
         .lean();
-    return replaceMongoIdInArray(courses);
+    return serializeCourseList(courses);
 }
 
 // Get course statistics
@@ -121,8 +122,8 @@ export async function getCourseDetails(id) {
             model: Lesson,
         }
     }).lean();
-    return replaceMongoIdInObject(course);
-}  
+    return serializeCourse(course);
+}
 
 
 function groupBy(array, keyFn){
@@ -196,20 +197,20 @@ export async function getCourseDetailsByInstructor(instructorId,expand){
     profilePicture : "Unknown"; 
 
     if (expand) {
-        const allCourses = await Course.find({instructor: instructorId }).lean();
-        return{
-        "courses" : allCourses?.flat(),
-        "enrollments": enrollments?.flat(),
-        "reviews" : totalTestimonials,
-        }
+        const allCourses = await Course.find({ instructor: instructorId }).lean();
+        return {
+            courses: serializeCourseList(allCourses?.flat() || []),
+            enrollments: enrollments?.flat(),
+            reviews: totalTestimonials,
+        };
     }
 
     return {
-        "courses" : publishCourses.length,
-        "enrollments": totalEnrollments,
-        "reviews" : totalTestimonials.length,
-        "ratings" : avgRating.toPrecision(2),
-        "inscourses" : publishCourses,
+        courses: publishCourses.length,
+        enrollments: totalEnrollments,
+        reviews: totalTestimonials.length,
+        ratings: avgRating.toPrecision(2),
+        inscourses: serializeCourseList(publishCourses),
         "revenue": totalRevenue,
         fullInsName,
         Designation,
@@ -231,8 +232,8 @@ export async function create(courseData) {
 export async function getCoursesByCategory(categoryId){
 
     try {
-        const courses = await Course.find({ category: categoryId}).populate("category").lean();
-        return courses; 
+        const courses = await Course.find({ category: categoryId }).populate("category").lean();
+        return serializeCourseList(courses);
     } catch (error) {
         throw new Error(error);
     }
@@ -242,8 +243,8 @@ export async function getCoursesByCategory(categoryId){
 export const getCategoryById = async (categoryId) => {
 
     try {
-        const category = await Category.findById(categoryId);
-        return category;
+        const category = await Category.findById(categoryId).lean();
+        return category ? replaceMongoIdInObject(category) : null;
     } catch (error) {
         throw new Error(error);
     }
@@ -263,7 +264,7 @@ export async function getRelatedCourses(currentCourseId,categoryId){
             active: true,
         })
         .select("title thumbnail price").lean();
-        return relatedCourses;
+        return serializeCourseList(relatedCourses);
     } catch (error) {
         throw new Error(error);
     }

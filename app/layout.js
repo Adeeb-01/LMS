@@ -1,9 +1,10 @@
 import localFont from "next/font/local";
-import { Inter } from "next/font/google";
+import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { dbConnect } from "@/service/mongo";
+import { getLocale } from "next-intl/server";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -21,23 +22,32 @@ export const metadata = {
   description: "Best Online Professional Courses",
 };
 
-const poppins = Inter({subsets: ['latin'], variable: "--font-poppins"});
+const poppins = Inter({ subsets: ["latin"], variable: "--font-poppins" });
+
+const cairo = Cairo({
+  subsets: ["latin", "arabic"],
+  variable: "--font-cairo",
+});
 
 export default async function RootLayout({ children }) {
-  // Database connection with error handling
+  const locale = await getLocale();
+
   try {
     await dbConnect();
   } catch (error) {
-    console.error('Database connection error:', error);
-    // Don't crash the app, but log the error
-    // In production, you might want to show a maintenance page
+    console.error("Database connection error:", error);
   }
 
   return (
-    <html lang="en">
+    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
       <body
         className={cn(
-          `${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`
+          geistSans.variable,
+          geistMono.variable,
+          poppins.variable,
+          cairo.variable,
+          "antialiased",
+          locale === "ar" && "font-cairo"
         )}
       >
         {children}

@@ -1,5 +1,6 @@
 "use server"
 
+import { sanitizeForClient } from "@/lib/utils/serialize";
 import { User } from "@/model/user-model";
 import { validatePassword } from "@/queries/users";
 import { revalidatePath } from "next/cache"; 
@@ -65,7 +66,7 @@ export async function updateUserInfo(email, updatedData) {
             revalidatePath('/api/profile/avatar');
         }
         
-        return { success: true, user: updatedUser };
+        return { success: true, user: sanitizeForClient(updatedUser) };
     } catch (error) {
         console.error('Update user info error:', error);
         throw new Error(error?.message || 'Failed to update user information');

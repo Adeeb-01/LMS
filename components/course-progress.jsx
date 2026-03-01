@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Progress } from "./ui/progress";
 
@@ -5,13 +8,14 @@ const colorByVariant = {
   default: "text-sky-700",
   success: "text-emerald-700",
 };
- 
+
 const sizeByVariant = {
   default: "text-sm",
   sm: "text-xs",
 };
 
 export const CourseProgress = ({ value, variant, size }) => {
+  const t = useTranslations("Common");
   return (
     <div>
       <Progress
@@ -26,7 +30,7 @@ export const CourseProgress = ({ value, variant, size }) => {
           sizeByVariant[size || "default"]
         )}
       >
-        {Math.round(value)}% Complete
+        {t("percentComplete", { value: Math.round(value) })}
       </p>
     </div>
   );
