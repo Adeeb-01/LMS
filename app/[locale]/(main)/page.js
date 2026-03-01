@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { SectionTitle } from "@/components/section-title";
 import Support from "@/components/support";
@@ -30,38 +29,9 @@ export const metadata = {
   },
 };
 
-// Cache data fetching for performance
-const getCachedFeaturedCourses = unstable_cache(
-  async () => {
-    return await getFeaturedCourses(8);
-  },
-  ['featured-courses'],
-  { revalidate: 3600 } // Revalidate every hour
-);
-
-const getCachedCategories = unstable_cache(
-  async () => {
-    return await getCategories();
-  },
-  ['categories'],
-  { revalidate: 3600 }
-);
-
-const getCachedStats = unstable_cache(
-  async () => {
-    return await getCourseStats();
-  },
-  ['course-stats'],
-  { revalidate: 1800 } // Revalidate every 30 minutes
-);
-
-const getCachedTestimonials = unstable_cache(
-  async () => {
-    return await getFeaturedTestimonials(6);
-  },
-  ['featured-testimonials'],
-  { revalidate: 1 }
-);
+// Disable caching to ensure fresh data from database
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const HomePage = async () => {
   const t = await getTranslations("Landing");
@@ -70,12 +40,12 @@ const HomePage = async () => {
     const session = await auth();
     const user = session?.user ? await getLoggedInUser() : null;
     
-    // Fetch data in parallel for better performance
+    // Fetch fresh data in parallel for better performance
     const [featuredCourses, categories, stats, testimonials] = await Promise.all([
-      getCachedFeaturedCourses(),
-      getCachedCategories(),
-      getCachedStats(),
-      getCachedTestimonials()
+      getFeaturedCourses(8),
+      getCategories(),
+      getCourseStats(),
+      getFeaturedTestimonials(6)
     ]);
 
     // Get user-specific data if logged in

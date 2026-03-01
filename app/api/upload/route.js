@@ -21,7 +21,9 @@ const ALLOWED_DESTINATIONS = [
     'public/uploads/avatars',
     'public/assets/images/courses',
     './public/assets/images/courses',
-    'public/assets/images'
+    'public/assets/images',
+    'public/assets/images/categories',
+    './public/assets/images/categories'
 ];
 
 // Sanitize filename to prevent path traversal

@@ -17,11 +17,17 @@ import { useTranslations } from "next-intl";
 import { adminUpdateCategory } from "@/app/actions/admin-categories";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { UploadDropzone } from "@/components/file-upload";
+import Image from "next/image";
+import { ImageIcon } from "lucide-react";
 
 export function EditCategoryDialog({ open, onOpenChange, category }) {
     const t = useTranslations("Admin");
     const router = useRouter();
     const [isPending, setIsPending] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [files, setFiles] = useState([]);
+    const [uploadedThumbnail, setUploadedThumbnail] = useState("");
     const [formData, setFormData] = useState({
         title: "",
         description: "",
@@ -35,8 +41,49 @@ export function EditCategoryDialog({ open, onOpenChange, category }) {
                 description: category.description || "",
                 thumbnail: category.thumbnail || ""
             });
+            setUploadedThumbnail(category.thumbnail || "");
         }
     }, [category]);
+
+    // Handle file upload
+    useEffect(() => {
+        if (!files?.length || !files?.[0]) return;
+
+        async function uploadFile() {
+            setIsUploading(true);
+            try {
+                const formData = new FormData();
+                formData.append("files", files[0]);
+                formData.append("destination", "./public/assets/images/categories");
+
+                const response = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    toast.error(result.error || t("uploadFailed"));
+                    setFiles([]);
+                    return;
+                }
+
+                const filename = result.filename;
+                setUploadedThumbnail(filename);
+                setFormData(prev => ({ ...prev, thumbnail: filename }));
+                toast.success(t("imageUploaded"));
+                setFiles([]);
+            } catch (e) {
+                toast.error(e?.message || t("somethingWentWrong"));
+                setFiles([]);
+            } finally {
+                setIsUploading(false);
+            }
+        }
+
+        uploadFile();
+    }, [files, t]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -62,7 +109,7 @@ export function EditCategoryDialog({ open, onOpenChange, category }) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{t("editCategory")}</DialogTitle>
                     <DialogDescription>
@@ -78,7 +125,7 @@ export function EditCategoryDialog({ open, onOpenChange, category }) {
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                 placeholder={t("categoryTitlePlaceholder")}
-                                disabled={isPending}
+                                disabled={isPending || isUploading}
                             />
                         </div>
                         <div className="space-y-2">
@@ -88,19 +135,42 @@ export function EditCategoryDialog({ open, onOpenChange, category }) {
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder={t("categoryDescriptionPlaceholder")}
-                                disabled={isPending}
+                                disabled={isPending || isUploading}
                                 rows={3}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="thumbnail">{t("categoryThumbnail")}</Label>
-                            <Input
-                                id="thumbnail"
-                                value={formData.thumbnail}
-                                onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
-                                placeholder={t("categoryThumbnailPlaceholder")}
-                                disabled={isPending}
-                            />
+                            <Label>{t("categoryThumbnail")}</Label>
+                            {!uploadedThumbnail ? (
+                                <UploadDropzone
+                                    onUpload={(incoming) => setFiles(Array.isArray(incoming) ? incoming : [incoming])}
+                                    disabled={isPending || isUploading}
+                                    maxSizeMB={5}
+                                />
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="relative w-full h-40 rounded-lg overflow-hidden border">
+                                        <Image
+                                            src={`/assets/images/categories/${uploadedThumbnail}`}
+                                            alt={t("categoryThumbnail")}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setUploadedThumbnail("");
+                                            setFormData(prev => ({ ...prev, thumbnail: "" }));
+                                        }}
+                                        disabled={isPending || isUploading}
+                                    >
+                                        {t("changeImage")}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -108,11 +178,11 @@ export function EditCategoryDialog({ open, onOpenChange, category }) {
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
-                            disabled={isPending}
+                            disabled={isPending || isUploading}
                         >
                             {t("cancel")}
                         </Button>
-                        <Button type="submit" disabled={isPending}>
+                        <Button type="submit" disabled={isPending || isUploading}>
                             {isPending ? t("updating") : t("save")}
                         </Button>
                     </DialogFooter>
