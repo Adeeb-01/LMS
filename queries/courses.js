@@ -29,6 +29,25 @@ export async function getCourseList() {
     return serializeCourseList(courses);
 }
 
+// Get ALL courses (including drafts) - for admin panel
+export async function getAllCourses() {
+    await dbConnect();
+    const courses = await Course.find({}).select(["title","subtitle","thumbnail","modules","price","category","instructor","active"]).populate({
+        path: "category",
+        model: Category
+    }).populate({
+        path: "instructor",
+        model: User
+    }).populate({
+        path: "testimonials",
+        model: Testimonial
+    }).populate({
+        path: "modules",
+        model: Module
+    }).lean();
+    return serializeCourseList(courses);
+}
+
 // Get featured courses (most popular by enrollments or highest rated)
 export async function getFeaturedCourses(limit = 8) {
     await dbConnect();

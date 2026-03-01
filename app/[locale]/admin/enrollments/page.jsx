@@ -1,49 +1,29 @@
 import { getAdminUser } from "@/lib/admin-utils";
-import { unstable_cache } from "next/cache";
 import EnrollmentsTable from "./_components/enrollments-table";
 import { getTranslations } from "next-intl/server";
 import { dbConnect } from "@/service/mongo";
 import { Enrollment } from "@/model/enrollment-model";
 import { replaceMongoIdInArray } from "@/lib/convertData";
-import mongoose from "mongoose";
 
-const getCachedEnrollments = unstable_cache(
-    async () => {
-        await dbConnect();
-        const enrollments = await Enrollment.find()
-            .populate({
-                path: 'course',
-                select: 'title thumbnail price'
-            })
-            .populate({
-                path: 'student',
-                select: 'firstName lastName email'
-            })
-            .sort({ enrollment_date: -1 })
-            .limit(100)
-            .lean();
-        return replaceMongoIdInArray(enrollments);
-    },
-    ['admin-enrollments'],
-    { revalidate: 120 }
-);
+// Ensure fresh data from database on every request
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-// Sanitize function to handle ObjectId, Buffer, and Date serialization
-function sanitizeEnrollmentsData(data) {
-    return JSON.parse(
-        JSON.stringify(data, (key, value) => {
-            if (value instanceof mongoose.Types.ObjectId) {
-                return value.toString();
-            }
-            if (Buffer.isBuffer(value)) {
-                return value.toString("base64");
-            }
-            if (value instanceof Date) {
-                return value.toISOString();
-            }
-            return value;
+async function getEnrollments() {
+    await dbConnect();
+    const enrollments = await Enrollment.find()
+        .populate({
+            path: 'course',
+            select: 'title thumbnail price'
         })
-    );
+        .populate({
+            path: 'student',
+            select: 'firstName lastName email'
+        })
+        .sort({ enrollment_date: -1 })
+        .limit(100)
+        .lean();
+    return replaceMongoIdInArray(enrollments);
 }
 
 export const metadata = {
@@ -54,8 +34,9 @@ export const metadata = {
 export default async function EnrollmentsPage() {
     await getAdminUser();
     const t = await getTranslations("Admin");
-    const enrollments = await getCachedEnrollments();
-    const sanitizedEnrollments = sanitizeEnrollmentsData(enrollments || []);
+    
+    // Fetch fresh enrollments data directly from database
+    const enrollments = await getEnrollments();
 
     return (
         <div className="space-y-6">
@@ -64,7 +45,7 @@ export default async function EnrollmentsPage() {
                 <p className="text-gray-600 mt-2">{t("viewEnrollmentsSub")}</p>
             </div>
 
-            <EnrollmentsTable enrollments={sanitizedEnrollments} />
+            <EnrollmentsTable enrollments={enrollments || []} />
         </div>
     );
 }

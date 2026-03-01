@@ -25,10 +25,15 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { getSafeImagePath } from "@/lib/utils";
+import { adminDeleteCourse } from "@/app/actions/admin-courses";
+import { DeleteCourseDialog } from "./delete-course-dialog";
 
 export default function CoursesTable({ courses: initialCourses }) {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [courseToDelete, setCourseToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const t = useTranslations("Admin");
     
     // Filter courses based on search
@@ -55,6 +60,29 @@ export default function CoursesTable({ courses: initialCourses }) {
     const formatPrice = (price) => {
         if (price === 0 || price === null) return t("free");
         return `$${price.toLocaleString()}`;
+    };
+
+    const handleDeleteClick = (course) => {
+        setCourseToDelete(course);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!courseToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await adminDeleteCourse(courseToDelete.id);
+            toast.success(t("courseDeleted"));
+            setDeleteDialogOpen(false);
+            setCourseToDelete(null);
+            router.refresh();
+        } catch (error) {
+            console.error('Delete course error:', error);
+            toast.error(error?.message || t("failedDeleteCourse"));
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     return (
@@ -153,7 +181,7 @@ export default function CoursesTable({ courses: initialCourses }) {
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="text-red-600"
-                                                    onClick={() => handleDelete(course.id, course.title)}
+                                                    onClick={() => handleDeleteClick(course)}
                                                 >
                                                     <Trash2 className="h-4 w-4 me-2" />
                                                     {t("delete")}
@@ -174,6 +202,15 @@ export default function CoursesTable({ courses: initialCourses }) {
                     {t("showingCourses", { filtered: filteredCourses.length, total: initialCourses.length })}
                 </div>
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <DeleteCourseDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                course={courseToDelete}
+                onConfirm={handleConfirmDelete}
+                isPending={isDeleting}
+            />
         </div>
     );
 }

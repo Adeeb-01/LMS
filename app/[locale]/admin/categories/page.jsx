@@ -1,24 +1,23 @@
 import { getAdminUser } from "@/lib/admin-utils";
 import { getCategories } from "@/queries/categories";
-import { unstable_cache } from "next/cache";
 import CategoriesTable from "./_components/categories-table";
 import { getTranslations } from "next-intl/server";
-
-const getCachedCategories = unstable_cache(
-    async () => await getCategories(),
-    ['admin-categories'],
-    { revalidate: 300 }
-);
 
 export const metadata = {
     title: "Categories Management - Admin",
     description: "Manage course categories"
 };
 
+// Ensure fresh data from database on every request
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function CategoriesPage() {
     await getAdminUser();
     const t = await getTranslations("Admin");
-    const categories = await getCachedCategories();
+    
+    // Fetch fresh categories data directly from database
+    const categories = await getCategories();
 
     return (
         <div className="space-y-6">

@@ -1,31 +1,30 @@
 import { getAdminUser } from "@/lib/admin-utils";
-import { unstable_cache } from "next/cache";
 import ReviewsTable from "./_components/reviews-table";
 import { getTranslations } from "next-intl/server";
 import { dbConnect } from "@/service/mongo";
 import { Testimonial } from "@/model/testimonial-model";
 import { replaceMongoIdInArray } from "@/lib/convertData";
 
-const getCachedReviews = unstable_cache(
-    async () => {
-        await dbConnect();
-        const reviews = await Testimonial.find()
-            .populate({
-                path: 'user',
-                select: 'firstName lastName email profilePicture'
-            })
-            .populate({
-                path: 'courseId',
-                select: 'title'
-            })
-            .sort({ createdAt: -1 })
-            .limit(100)
-            .lean();
-        return replaceMongoIdInArray(reviews);
-    },
-    ['admin-reviews'],
-    { revalidate: 120 }
-);
+// Ensure fresh data from database on every request
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+async function getReviews() {
+    await dbConnect();
+    const reviews = await Testimonial.find()
+        .populate({
+            path: 'user',
+            select: 'firstName lastName email profilePicture'
+        })
+        .populate({
+            path: 'courseId',
+            select: 'title'
+        })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+    return replaceMongoIdInArray(reviews);
+}
 
 export const metadata = {
     title: "Reviews Management - Admin",
@@ -35,7 +34,9 @@ export const metadata = {
 export default async function ReviewsPage() {
     await getAdminUser();
     const t = await getTranslations("Admin");
-    const reviews = await getCachedReviews();
+    
+    // Fetch fresh reviews data directly from database
+    const reviews = await getReviews();
 
     return (
         <div className="space-y-6">

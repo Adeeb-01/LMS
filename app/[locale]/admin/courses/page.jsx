@@ -1,25 +1,23 @@
 import { getAdminUser } from "@/lib/admin-utils";
-import { getCourseList } from "@/queries/courses";
-import { unstable_cache } from "next/cache";
+import { getAllCourses } from "@/queries/courses";
 import CoursesTable from "./_components/courses-table";
 import { getTranslations } from "next-intl/server";
-
-// Cache courses for 2 minutes
-const getCachedCourses = unstable_cache(
-    async () => await getCourseList(),
-    ['admin-courses'],
-    { revalidate: 120 }
-);
 
 export const metadata = {
     title: "Courses Management - Admin",
     description: "Manage all courses in the platform"
 };
 
+// Ensure fresh data from database on every request
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function CoursesPage() {
     await getAdminUser();
     const t = await getTranslations("Admin");
-    const courses = await getCachedCourses();
+    
+    // Fetch ALL courses (including drafts) directly from database
+    const courses = await getAllCourses();
 
     return (
         <div className="space-y-6">
