@@ -23,9 +23,20 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { adminDeleteCategory } from "@/app/actions/admin-categories";
+import { AddCategoryDialog } from "./add-category-dialog";
+import { EditCategoryDialog } from "./edit-category-dialog";
+import { DeleteCategoryDialog } from "./delete-category-dialog";
 
 export default function CategoriesTable({ categories: initialCategories }) {
+    const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const t = useTranslations("Admin");
     
     const filteredCategories = initialCategories.filter(category => {
@@ -36,6 +47,34 @@ export default function CategoriesTable({ categories: initialCategories }) {
             category.description?.toLowerCase().includes(search)
         );
     });
+
+    const handleEditClick = (category) => {
+        setSelectedCategory(category);
+        setEditDialogOpen(true);
+    };
+
+    const handleDeleteClick = (category) => {
+        setSelectedCategory(category);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!selectedCategory) return;
+
+        setIsDeleting(true);
+        try {
+            await adminDeleteCategory(selectedCategory.id);
+            toast.success(t("categoryDeleted"));
+            setDeleteDialogOpen(false);
+            setSelectedCategory(null);
+            router.refresh();
+        } catch (error) {
+            console.error('Delete category error:', error);
+            toast.error(error?.message || t("failedDeleteCategory"));
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -50,11 +89,9 @@ export default function CategoriesTable({ categories: initialCategories }) {
                         className="ps-10"
                     />
                 </div>
-                <Button asChild>
-                    <Link href="/dashboard/courses/add">
-                        <Plus className="h-4 w-4 me-2" />
-                        {t("addCategory")}
-                    </Link>
+                <Button onClick={() => setAddDialogOpen(true)}>
+                    <Plus className="h-4 w-4 me-2" />
+                    {t("addCategory")}
                 </Button>
             </div>
 
@@ -105,17 +142,20 @@ export default function CategoriesTable({ categories: initialCategories }) {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                    onClick={() => handleEditClick(category)}
+                                                >
+                                                    <Edit className="h-4 w-4 me-2" />
+                                                    {t("edit")}
+                                                </DropdownMenuItem>
                                                 <DropdownMenuItem asChild>
                                                     <Link href={`/categories/${category.id}`}>
-                                                        <Edit className="h-4 w-4 me-2" />
                                                         {t("viewCourses")}
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="text-red-600"
-                                                    onClick={() => {
-                                                        toast.info(t("deleteComingSoon"));
-                                                    }}
+                                                    onClick={() => handleDeleteClick(category)}
                                                 >
                                                     <Trash2 className="h-4 w-4 me-2" />
                                                     {t("delete")}
@@ -135,6 +175,28 @@ export default function CategoriesTable({ categories: initialCategories }) {
                     {t("showingCategories", { filtered: filteredCategories.length, total: initialCategories.length })}
                 </div>
             )}
+
+            {/* Add Category Dialog */}
+            <AddCategoryDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+            />
+
+            {/* Edit Category Dialog */}
+            <EditCategoryDialog
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+                category={selectedCategory}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            <DeleteCategoryDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                category={selectedCategory}
+                onConfirm={handleConfirmDelete}
+                isPending={isDeleting}
+            />
         </div>
     );
 }
