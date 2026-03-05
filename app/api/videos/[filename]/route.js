@@ -73,13 +73,13 @@ async function verifyVideoAccess(filename, userId, userRole) {
     }
     
     // Find module containing this lesson
-    const module = await Module.findOne({ lessonIds: lesson._id }).lean();
-    if (!module) {
+    const courseModule = await Module.findOne({ lessonIds: lesson._id }).lean();
+    if (!courseModule) {
         return { allowed: false, error: 'Module not found' };
     }
     
     // Find course containing this module
-    const course = await Course.findById(module.course).lean();
+    const course = await Course.findById(courseModule.course).lean();
     if (!course) {
         return { allowed: false, error: 'Course not found' };
     }

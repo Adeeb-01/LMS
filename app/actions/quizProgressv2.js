@@ -3,7 +3,122 @@
 import { dbConnect } from "@/service/mongo";
 import { Report } from "@/model/report-model";
 import { getStudentQuizStatusMap, getCourseQuizzes } from "@/queries/quizv2";
+import { getLoggedInUser } from "@/lib/loggedin-user";
+import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import mongoose from "mongoose";
+
+/**
+ * Checks if student can download certificate (all required quizzes passed).
+ * US3: T018
+ */
+export async function checkCertificateEligibility(courseId) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        // Check enrollment
+        const enrolled = await hasEnrollmentForCourse(courseId, user.id);
+        if (!enrolled) {
+            return { ok: false, error: "You must be enrolled in this course" };
+        }
+
+        // Get all required quizzes for the course
+        const allQuizzes = await getCourseQuizzes(courseId, {
+            forStudent: true,
+            includeUnpublished: false
+        });
+        const requiredQuizzes = allQuizzes.filter(q => q.required);
+
+        if (requiredQuizzes.length === 0) {
+            return { ok: true, eligible: true };
+        }
+
+        // Get student's quiz status map
+        const statusMap = await getStudentQuizStatusMap(courseId, user.id);
+
+        const pendingQuizzes = [];
+        for (const quiz of requiredQuizzes) {
+            const status = statusMap[quiz.id];
+            if (!status || !status.passed) {
+                pendingQuizzes.push({
+                    quizId: quiz.id,
+                    title: quiz.title,
+                    status: status ? (status.status === "in_progress" ? "in_progress" : "failed") : "not_started"
+                });
+            }
+        }
+
+        if (pendingQuizzes.length > 0) {
+            return {
+                ok: true,
+                eligible: false,
+                reason: "You must pass all required quizzes to download the certificate.",
+                pendingQuizzes
+            };
+        }
+
+        return { ok: true, eligible: true };
+    } catch (error) {
+        console.error("[CHECK_CERTIFICATE_ELIGIBILITY] Error:", error);
+        return { ok: false, error: error.message || "Failed to check eligibility" };
+    }
+}
+
+/**
+ * Gets quiz completion status for course progress display.
+ * US3: T019
+ */
+export async function getCourseQuizProgress(courseId) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        // Check enrollment
+        const enrolled = await hasEnrollmentForCourse(courseId, user.id);
+        if (!enrolled) {
+            return { ok: false, error: "You must be enrolled in this course" };
+        }
+
+        // Get all published quizzes for the course
+        const allQuizzes = await getCourseQuizzes(courseId, {
+            forStudent: true,
+            includeUnpublished: false
+        });
+
+        // Get student's quiz status map
+        const statusMap = await getStudentQuizStatusMap(courseId, user.id);
+
+        const quizzes = allQuizzes.map(quiz => {
+            const status = statusMap[quiz.id] || {
+                status: "not_started",
+                passed: false,
+                attemptsUsed: 0,
+                lastScore: null
+            };
+
+            return {
+                quizId: quiz.id,
+                title: quiz.title,
+                required: quiz.required || false,
+                status: status.passed ? "passed" : (status.status === "in_progress" ? "in_progress" : (status.attemptsUsed > 0 ? "failed" : "not_started")),
+                bestScore: status.lastScore,
+                attemptsUsed: status.attemptsUsed,
+                maxAttempts: quiz.maxAttempts
+            };
+        });
+
+        return { ok: true, quizzes };
+    } catch (error) {
+        console.error("[GET_COURSE_QUIZ_PROGRESS] Error:", error);
+        return { ok: false, error: error.message || "Failed to get quiz progress" };
+    }
+}
 
 /**
  * Update quiz completion status in report when a quiz is submitted/passed
@@ -83,16 +198,16 @@ export async function updateQuizCompletionInReport(courseId, userId, quizId, les
                     
                     // Check module completion
                     const { Module } = await import("@/model/module.model");
-                    const module = await Module.findOne({
+                    const courseModule = await Module.findOne({
                         lessonIds: lessonObjId
                     }).lean();
                     
-                    if (module) {
+                    if (courseModule) {
                         const { getCourseDetails } = await import("@/queries/courses");
                         const courseDetails = await getCourseDetails(courseId);
                         const moduleData = courseDetails?.modules?.find(m => {
                             const moduleId = m._id?.toString() || m.id;
-                            return moduleId === module._id.toString();
+                            return moduleId === courseModule._id.toString();
                         });
                         
                         if (moduleData) {

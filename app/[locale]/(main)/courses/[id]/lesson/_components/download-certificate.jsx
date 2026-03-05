@@ -3,12 +3,15 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, Lock } from "lucide-react";
+import { Download, Loader2, Lock, AlertCircle } from "lucide-react";
 import { handleActionResponse, toastError, toastSuccess } from "@/lib/toast-helpers";
+import { checkCertificateEligibility } from "@/app/actions/quizProgressv2";
+import Link from "next/link";
 
 export const DownloadCertificate = ({ courseId, totalProgress }) => {
   const t = useTranslations("Lesson");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [eligibility, setEligibility] = useState(null);
   const isComplete = totalProgress >= 100;
 
   async function handleCertificateDownload() {
@@ -17,12 +20,28 @@ export const DownloadCertificate = ({ courseId, totalProgress }) => {
       return;
     }
 
-        setIsDownloading(true);
+    setIsDownloading(true);
 
-        try {
-            const response = await fetch(`/api/certificates/${courseId}`, {
-                method: 'GET',
-            });
+    try {
+        // Double check eligibility (including quizzes) before attempting download
+        const eligibilityCheck = await checkCertificateEligibility(courseId);
+        
+        if (!eligibilityCheck.ok) {
+            toastError(t("toastDownloadFailed"), eligibilityCheck.error || t("toastDownloadFailedDesc"));
+            setIsDownloading(false);
+            return;
+        }
+
+        if (!eligibilityCheck.eligible) {
+            setEligibility(eligibilityCheck);
+            toastError(t("toastAccessDenied"), eligibilityCheck.reason || t("toastCourseCompleteRequired"));
+            setIsDownloading(false);
+            return;
+        }
+
+        const response = await fetch(`/api/certificates/${courseId}`, {
+            method: 'GET',
+        });
 
             // Handle error responses (JSON)
             if (!response.ok) {
@@ -111,6 +130,27 @@ export const DownloadCertificate = ({ courseId, totalProgress }) => {
                 <p className="text-xs text-muted-foreground mt-2 text-center">
                     {t("progressCompleteAll", { progress: Math.round(totalProgress) })}
                 </p>
+            )}
+            {eligibility && !eligibility.eligible && eligibility.pendingQuizzes?.length > 0 && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <div className="flex items-center gap-2 text-destructive text-sm font-medium mb-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{t("requiredQuizzesPending")}</span>
+                    </div>
+                    <ul className="space-y-1">
+                        {eligibility.pendingQuizzes.map((quiz) => (
+                            <li key={quiz.quizId} className="text-xs flex justify-between items-center">
+                                <span className="text-muted-foreground truncate max-w-[150px]">{quiz.title}</span>
+                                <Link 
+                                    href={`/courses/${courseId}/quizzes/${quiz.quizId}`}
+                                    className="text-primary hover:underline font-medium"
+                                >
+                                    {t("takeQuiz")}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </div>
     );

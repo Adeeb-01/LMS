@@ -659,3 +659,123 @@ export async function getAttemptResult(attemptId) {
         return { ok: false, error: error.message || "Failed to get attempt result" };
     }
 }
+
+/**
+ * Get quiz result with review data (US2)
+ */
+export async function getQuizResultWithReview(attemptId) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        const attempt = await Attempt.findById(attemptId).lean();
+        if (!attempt) {
+            return { ok: false, error: "Attempt not found" };
+        }
+
+        const quiz = await Quiz.findById(attempt.quizId).lean();
+        if (!quiz) {
+            return { ok: false, error: "Quiz not found" };
+        }
+
+        // Authorization check
+        const isOwner = attempt.studentId.toString() === user.id;
+        const isInstructorOrAdmin = user.role === "instructor" || user.role === "admin";
+        
+        if (!isOwner && !isInstructorOrAdmin) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        // Get attempt history for this student and quiz
+        const attemptHistory = await Attempt.find({
+            quizId: attempt.quizId,
+            studentId: attempt.studentId,
+            status: { $in: ["submitted", "expired"] }
+        })
+        .sort({ submittedAt: -1 })
+        .select("_id score scorePercent passed status submittedAt")
+        .lean();
+
+        const result = {
+            attempt: {
+                _id: attempt._id.toString(),
+                score: attempt.score,
+                scorePercent: attempt.scorePercent,
+                passed: attempt.passed,
+                submittedAt: attempt.submittedAt,
+                status: attempt.status
+            },
+            quiz: {
+                _id: quiz._id.toString(),
+                title: quiz.title,
+                passPercent: quiz.passPercent,
+                showAnswersPolicy: quiz.showAnswersPolicy || "after_submit"
+            },
+            attemptHistory: attemptHistory.map(h => ({
+                ...h,
+                _id: h._id.toString()
+            }))
+        };
+
+        // Determine if review should be included
+        const policy = quiz.showAnswersPolicy || "after_submit";
+        let includeReview = false;
+        let includeCorrectAnswers = false;
+
+        if (isInstructorOrAdmin) {
+            includeReview = true;
+            includeCorrectAnswers = true;
+        } else if (policy === "after_submit") {
+            includeReview = true;
+            includeCorrectAnswers = true;
+        } else if (policy === "after_pass" && attempt.passed) {
+            includeReview = true;
+            includeCorrectAnswers = true;
+        } else if (policy === "after_pass" && !attempt.passed) {
+            includeReview = true;
+            includeCorrectAnswers = false; // Show what they got, but not the correct ones
+        }
+
+        if (includeReview) {
+            const questions = await Question.find({ quizId: quiz._id }).sort({ order: 1 }).lean();
+            
+            // Create a map of student answers for quick lookup
+            const studentAnswerMap = {};
+            (attempt.answers || []).forEach(a => {
+                studentAnswerMap[a.questionId.toString()] = a.selectedOptionIds || [];
+            });
+
+            result.review = {
+                questions: questions.map(q => {
+                    const studentAnswer = studentAnswerMap[q._id.toString()] || [];
+                    const grade = gradeQuestion(q, studentAnswer);
+                    
+                    const questionReview = {
+                        _id: q._id.toString(),
+                        text: q.text,
+                        type: q.type,
+                        options: q.options.map(o => ({ id: o.id, text: o.text })),
+                        points: q.points,
+                        studentAnswer,
+                        isCorrect: grade.correct
+                    };
+
+                    if (includeCorrectAnswers) {
+                        questionReview.correctAnswer = q.correctOptionIds || [];
+                        questionReview.explanation = q.explanation || "";
+                    }
+
+                    return questionReview;
+                })
+            };
+        }
+
+        return { ok: true, result: JSON.parse(JSON.stringify(result)) };
+    } catch (error) {
+        console.error("[GET_QUIZ_RESULT_WITH_REVIEW] Error:", error);
+        return { ok: false, error: error.message || "Failed to get quiz result" };
+    }
+}

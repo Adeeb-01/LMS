@@ -8,9 +8,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, Play, FileQuestion } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export default async function QuizzesPage({ params }) {
     const { id: courseId } = await params;
+    const t = await getTranslations("Quiz");
 
     const user = await getLoggedInUser();
     if (!user) {
@@ -47,18 +49,18 @@ export default async function QuizzesPage({ params }) {
         const status = statusMap[quiz.id] || {};
         
         if (status.status === "in_progress") {
-            return { label: "In Progress", icon: Play, variant: "default", className: "bg-blue-100 text-blue-800" };
+            return { label: t("inProgress"), icon: Play, variant: "default", className: "bg-blue-100 text-blue-800" };
         }
         
         if (status.passed) {
-            return { label: "Passed", icon: CheckCircle, variant: "default", className: "bg-emerald-100 text-emerald-800" };
+            return { label: t("passed"), icon: CheckCircle, variant: "default", className: "bg-emerald-100 text-emerald-800" };
         }
         
-        if (status.status === "submitted") {
-            return { label: "Completed", icon: Clock, variant: "secondary" };
+        if (status.status === "submitted" || status.attemptsUsed > 0) {
+            return { label: t("failed"), icon: Clock, variant: "destructive", className: "bg-red-100 text-red-800" };
         }
         
-        return { label: "Not Started", icon: FileQuestion, variant: "outline" };
+        return { label: t("notStarted"), icon: FileQuestion, variant: "outline" };
     };
 
     const getActionButton = (quiz) => {
@@ -69,7 +71,7 @@ export default async function QuizzesPage({ params }) {
                 <Link href={`/courses/${courseId}/quizzes/${quiz.id}?attemptId=${status.inProgressAttemptId}`}>
                     <Button>
                         <Play className="w-4 h-4 me-2 rtl:rotate-180" />
-                        Resume
+                        {t("resume")}
                     </Button>
                 </Link>
             );
@@ -79,7 +81,7 @@ export default async function QuizzesPage({ params }) {
             return (
                 <Link href={`/courses/${courseId}/quizzes/${quiz.id}/result`}>
                     <Button variant="outline">
-                        View Result
+                        {t("viewResult")}
                     </Button>
                 </Link>
             );
@@ -89,7 +91,7 @@ export default async function QuizzesPage({ params }) {
         if (quiz.maxAttempts !== null && status.attemptsUsed >= quiz.maxAttempts) {
             return (
                 <Button disabled variant="outline">
-                    Max Attempts Reached
+                    {t("maxAttemptsReached")}
                 </Button>
             );
         }
@@ -98,7 +100,7 @@ export default async function QuizzesPage({ params }) {
             <Link href={`/courses/${courseId}/quizzes/${quiz.id}`}>
                 <Button>
                     <Play className="w-4 h-4 me-2 rtl:rotate-180" />
-                    Start
+                    {t("start")}
                 </Button>
             </Link>
         );
@@ -107,16 +109,16 @@ export default async function QuizzesPage({ params }) {
     return (
         <div className="max-w-4xl mx-auto p-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold">Quizzes</h1>
+                <h1 className="text-2xl font-bold">{t("quizzes")}</h1>
                 <p className="text-slate-600">{course.title}</p>
             </div>
 
             {quizzes.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <p className="text-slate-500">No quizzes available for this course yet.</p>
+                    <p className="text-slate-500">{t("noQuizzesAvailable")}</p>
                     <Link href={`/courses/${courseId}/lesson`}>
                         <Button variant="outline" className="mt-4">
-                            Back to Lessons
+                            {t("backToLessons")}
                         </Button>
                     </Link>
                 </div>
@@ -125,7 +127,7 @@ export default async function QuizzesPage({ params }) {
                     {/* Course-level quizzes */}
                     {courseQuizzes.length > 0 && (
                         <div>
-                            <h2 className="text-lg font-semibold mb-4">Course Quizzes</h2>
+                            <h2 className="text-lg font-semibold mb-4">{t("courseQuizzes")}</h2>
                             <div className="space-y-4">
                                 {courseQuizzes.map((quiz) => {
                                     const status = getQuizStatus(quiz);
@@ -142,7 +144,7 @@ export default async function QuizzesPage({ params }) {
                                                         </Badge>
                                                         {quiz.required && (
                                                             <Badge variant="outline" className="text-xs">
-                                                                Required
+                                                                {t("required")}
                                                             </Badge>
                                                         )}
                                                     </div>
@@ -150,13 +152,13 @@ export default async function QuizzesPage({ params }) {
                                                         <p className="text-slate-600 mb-3">{quiz.description}</p>
                                                     )}
                                                     <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                        <span>Pass: {quiz.passPercent}%</span>
+                                                        <span>{t("passLabel")}: {quiz.passPercent}%</span>
                                                         {quiz.timeLimitSec && (
-                                                            <span>Time: {Math.floor(quiz.timeLimitSec / 60)} min</span>
+                                                            <span>{t("timeLabel")}: {Math.floor(quiz.timeLimitSec / 60)} {t("min")}</span>
                                                         )}
                                                         {quiz.maxAttempts !== null && (
                                                             <span>
-                                                                Attempts: {statusMap[quiz.id]?.attemptsUsed || 0}/{quiz.maxAttempts}
+                                                                {t("attemptsLabel")}: {statusMap[quiz.id]?.attemptsUsed || 0}/{quiz.maxAttempts}
                                                             </span>
                                                         )}
                                                     </div>
@@ -175,7 +177,7 @@ export default async function QuizzesPage({ params }) {
                     {/* Lesson-level quizzes */}
                     {lessonQuizzes.length > 0 && (
                         <div>
-                            <h2 className="text-lg font-semibold mb-4">Lesson Quizzes</h2>
+                            <h2 className="text-lg font-semibold mb-4">{t("lessonQuizzes")}</h2>
                             <div className="space-y-4">
                                 {lessonQuizzes.map((quiz) => {
                                     const status = getQuizStatus(quiz);
@@ -192,7 +194,7 @@ export default async function QuizzesPage({ params }) {
                                                         </Badge>
                                                         {quiz.required && (
                                                             <Badge variant="outline" className="text-xs">
-                                                                Required
+                                                                {t("required")}
                                                             </Badge>
                                                         )}
                                                     </div>
@@ -200,9 +202,9 @@ export default async function QuizzesPage({ params }) {
                                                         <p className="text-slate-600 mb-3">{quiz.description}</p>
                                                     )}
                                                     <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                        <span>Pass: {quiz.passPercent}%</span>
+                                                        <span>{t("passLabel")}: {quiz.passPercent}%</span>
                                                         {quiz.timeLimitSec && (
-                                                            <span>Time: {Math.floor(quiz.timeLimitSec / 60)} min</span>
+                                                            <span>{t("timeLabel")}: {Math.floor(quiz.timeLimitSec / 60)} {t("min")}</span>
                                                         )}
                                                     </div>
                                                 </div>

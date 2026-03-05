@@ -111,8 +111,8 @@ export async function changeModulePublishState(moduleId) {
         const { assertInstructorOwnsModule } = await import('@/lib/authorization');
         await assertInstructorOwnsModule(moduleId, user.id, user);
         
-        const module = await Module.findById(moduleId);
-        if (!module) {
+        const courseModule = await Module.findById(moduleId);
+        if (!courseModule) {
             throw new Error('Module not found');
         }
         
@@ -143,11 +143,11 @@ export async function deleteModule(moduleId, courseId) {
         if (course.instructor.toString() !== user.id) {
             throw new Error('Forbidden: You do not have permission to modify this course');
         }
-        const module = await Module.findById(moduleId).select('course').lean();
-        if (!module) {
+        const courseModule = await Module.findById(moduleId).select('course').lean();
+        if (!courseModule) {
             throw new Error('Module not found');
         }
-        if (module.course.toString() !== courseId.toString()) {
+        if (courseModule.course.toString() !== courseId.toString()) {
             throw new Error('Forbidden: Module does not belong to this course');
         }
         await Course.findByIdAndUpdate(courseId, { $pull: { modules: new mongoose.Types.ObjectId(moduleId) } });

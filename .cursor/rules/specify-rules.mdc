@@ -1,0 +1,35 @@
+﻿---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+# LMS-main Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-03-05
+
+## Active Technologies
+
+- JavaScript (JSX/JS) via Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, shadcn/ui, next-intl (001-improve-quiz-system)
+
+## Project Structure
+
+```text
+backend/
+frontend/
+tests/
+```
+
+## Commands
+
+npm test; npm run lint
+
+## Code Style
+
+JavaScript (JSX/JS) via Next.js 15 (App Router): Follow standard conventions
+
+## Recent Changes
+
+- 001-improve-quiz-system: Added JavaScript (JSX/JS) via Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, shadcn/ui, next-intl
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

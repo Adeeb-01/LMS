@@ -32,13 +32,13 @@ export async function createLesson(data){
 
         const createdLesson = await create({title,slug,order});
 
-        const module = await Module.findById(moduleId);
-        if (!module) {
+        const courseModule = await Module.findById(moduleId);
+        if (!courseModule) {
             throw new Error('Module not found');
         }
         
-        module.lessonIds.push(createdLesson._id);
-        await module.save();
+        courseModule.lessonIds.push(createdLesson._id);
+        await courseModule.save();
 
         return replaceMongoIdInObject(createdLesson);
         
@@ -132,14 +132,14 @@ export async function deleteLesson(lessonId, moduleId){
         const { assertInstructorOwnsLesson } = await import('@/lib/authorization');
         await assertInstructorOwnsLesson(lessonId, user.id, user);
         
-        const module = await Module.findById(moduleId);
-        if (!module) {
+        const courseModule = await Module.findById(moduleId);
+        if (!courseModule) {
             throw new Error('Module not found');
         }
         
-        module.lessonIds.pull(new mongoose.Types.ObjectId(lessonId));
+        courseModule.lessonIds.pull(new mongoose.Types.ObjectId(lessonId));
         await Lesson.findByIdAndDelete(lessonId);
-        await module.save();
+        await courseModule.save();
     } catch (error) {
         throw new Error(error?.message || 'Failed to delete lesson');
     }

@@ -59,7 +59,7 @@ export const LessonList = ({ items, onReorder, onEdit }) => {
         {(provided) => (
           <div {...provided.droppableProps} ref={provided.innerRef}>
             {modules.map((module, index) => (
-              <Draggable key={module.id} draggableId={module.id} index={index}>
+              <Draggable key={module.id || index} draggableId={module.id || `lesson-${index}`} index={index}>
                 {(provided) => (
                   <div
                     className={cn(

@@ -9,11 +9,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { startOrResumeAttempt, autosaveAttempt, submitAttempt } from "@/app/actions/quizv2";
-import { Clock, ChevronLeft, ChevronRight, Send, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { QuizTimer } from "./quiz-timer";
+import { QuestionNavigator } from "./question-navigator";
+import { QuizSummary } from "./quiz-summary";
+import * as quizStorage from "@/lib/quiz-storage";
 
 export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPreview }) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const t = useTranslations("Quiz");
     const [isLoading, setIsLoading] = useState(!existingAttemptId);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [attemptId, setAttemptId] = useState(existingAttemptId);
@@ -21,8 +27,8 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
     const [shuffledQuestions, setShuffledQuestions] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState({});
-    const [timeRemaining, setTimeRemaining] = useState(null);
     const [expiresAt, setExpiresAt] = useState(null);
+    const [showSummary, setShowSummary] = useState(false);
 
     // Initialize attempt and load questions
     useEffect(() => {
@@ -34,23 +40,33 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
                     const data = await res.json();
                     if (data.ok) {
                         const attempt = data.attempt;
-                        setExpiresAt(attempt.expiresAt ? new Date(attempt.expiresAt) : null);
+                        const serverExpiresAt = attempt.expiresAt ? new Date(attempt.expiresAt) : null;
+                        setExpiresAt(serverExpiresAt);
                         
-                        // Restore answers
-                        const answerMap = {};
-                        attempt.answers?.forEach(a => {
-                            answerMap[a.questionId] = a.selectedOptionIds;
-                        });
+                        // Restore answers - check localStorage first
+                        const localData = quizStorage.loadAnswers(existingAttemptId);
+                        const hasNewerLocal = quizStorage.hasNewerAnswers(existingAttemptId, attempt.updatedAt);
+                        
+                        let answerMap = {};
+                        if (hasNewerLocal && localData?.answers) {
+                            answerMap = localData.answers;
+                            // Sync newer local answers to server
+                            autosaveAttempt(existingAttemptId, answerMap).catch(err => console.error("Sync failed:", err));
+                        } else {
+                            attempt.answers?.forEach(a => {
+                                answerMap[a.questionId] = a.selectedOptionIds;
+                            });
+                        }
                         setAnswers(answerMap);
-                        
-                        // Calculate time remaining
-                        if (attempt.expiresAt) {
-                            const remaining = Math.max(0, Math.floor((new Date(attempt.expiresAt) - new Date()) / 1000));
-                            setTimeRemaining(remaining);
+
+                        // Handle expired attempt
+                        if (serverExpiresAt && serverExpiresAt < new Date()) {
+                            toast.error(t("quizExpired"));
+                            handleSubmit(true);
                         }
                     }
                 } catch (error) {
-                    toast.error("Failed to load attempt");
+                    toast.error(t("failedToLoadAttempt"));
                 }
                 setIsLoading(false);
                 return;
@@ -68,15 +84,13 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
                     if (data.ok && data.attempt.expiresAt) {
                         const expires = new Date(data.attempt.expiresAt);
                         setExpiresAt(expires);
-                        const remaining = Math.max(0, Math.floor((expires - new Date()) / 1000));
-                        setTimeRemaining(remaining);
                     }
                 } else {
-                    toast.error(result.error || "Failed to start quiz");
+                    toast.error(result.error || t("failedToStartQuiz"));
                     router.push(`/courses/${courseId}/quizzes`);
                 }
             } catch (error) {
-                toast.error("Failed to start quiz");
+                toast.error(t("failedToStartQuiz"));
                 router.push(`/courses/${courseId}/quizzes`);
             } finally {
                 setIsLoading(false);
@@ -85,17 +99,15 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         init();
     }, [existingAttemptId, quiz.id, courseId, router]);
 
-    // Shuffle questions if needed
+    // Shuffled questions logic
     useEffect(() => {
         if (questions.length === 0) return;
         
         let ordered = [...questions];
         if (quiz.shuffleQuestions) {
-            // Simple shuffle (could use seeded shuffle for consistency)
             ordered = ordered.sort(() => Math.random() - 0.5);
         }
         
-        // Shuffle options if needed
         if (quiz.shuffleOptions) {
             ordered = ordered.map(q => ({
                 ...q,
@@ -106,41 +118,23 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         setShuffledQuestions(ordered);
     }, [questions, quiz.shuffleQuestions, quiz.shuffleOptions]);
 
-    // Timer countdown
-    useEffect(() => {
-        if (timeRemaining === null || timeRemaining <= 0 || !attemptId) return;
-
-        const interval = setInterval(() => {
-            setTimeRemaining((prev) => {
-                if (prev === null || prev <= 1) {
-                    clearInterval(interval);
-                    handleSubmit(true);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [timeRemaining, attemptId]);
-
     // Autosave
     useEffect(() => {
         if (!attemptId || Object.keys(answers).length === 0 || isPreview) return;
         
+        // Backup to localStorage immediately
+        quizStorage.saveAnswers(attemptId, {
+            answers,
+            quizId: quiz.id,
+            expiresAt: expiresAt?.toISOString()
+        });
+
         const autosaveTimer = setTimeout(() => {
             autosaveAttempt(attemptId, answers).catch(err => console.error("Autosave failed:", err));
         }, 5000);
 
         return () => clearTimeout(autosaveTimer);
-    }, [answers, attemptId, isPreview]);
-
-    const formatTime = useCallback((seconds) => {
-        if (seconds === null) return null;
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, "0")}`;
-    }, []);
+    }, [answers, attemptId, isPreview, quiz.id, expiresAt]);
 
     const currentQuestion = useMemo(
         () => shuffledQuestions[currentIndex],
@@ -167,11 +161,11 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
     const handleSubmit = useCallback(async (autoSubmit = false) => {
         if (isSubmitting || !attemptId) return;
 
-        if (!autoSubmit) {
+        if (!autoSubmit && !showSummary) {
             const unanswered = shuffledQuestions.filter(q => !answers[q.id]);
             if (unanswered.length > 0) {
                 const proceed = window.confirm(
-                    `You have ${unanswered.length} unanswered question(s). Submit anyway?`
+                    t("unansweredQuestions", { count: unanswered.length }) + " " + t("submitAnyway")
                 );
                 if (!proceed) return;
             }
@@ -183,15 +177,16 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
             const result = await submitAttempt(attemptId, answers);
 
             if (result.ok) {
-                toast.success(result.attempt.passed ? "Quiz passed!" : "Quiz submitted");
+                quizStorage.clearAnswers(attemptId);
+                toast.success(result.attempt.passed ? t("quizPassed") : t("quizSubmitted"));
                 router.push(
                     `/courses/${courseId}/quizzes/${quiz.id}/result?attemptId=${attemptId}`
                 );
             } else {
-                toast.error(result.error || "Failed to submit quiz");
+                toast.error(result.error || t("failedToSubmit"));
             }
         } catch (error) {
-            toast.error("Failed to submit quiz");
+            toast.error(t("failedToSubmit"));
         } finally {
             setIsSubmitting(false);
         }
@@ -202,7 +197,7 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-slate-600">Loading quiz...</p>
+                    <p className="text-slate-600">{t("isLoading")}</p>
                 </div>
             </div>
         );
@@ -211,17 +206,24 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
     if (shuffledQuestions.length === 0) {
         return (
             <div className="text-center py-12">
-                <p className="text-slate-600">No questions found in this quiz.</p>
+                <p className="text-slate-600">{t("noQuestionsFound")}</p>
                 <Button
                     variant="outline"
                     className="mt-4"
                     onClick={() => router.push(`/courses/${courseId}/quizzes`)}
                 >
-                    Back to Quizzes
+                    {t("backToQuizzes")}
                 </Button>
             </div>
         );
     }
+
+    const handleJumpToIndex = useCallback((index) => {
+        setCurrentIndex(index);
+        setShowSummary(false);
+        // Focus management: scroll to top of question area
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
     const renderQuestion = () => {
         const questionId = currentQuestion.id;
@@ -257,7 +259,7 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         return (
             <div className="space-y-2">
                 {isMultiple && (
-                    <p className="text-sm text-slate-500 mb-2">Select all that apply</p>
+                    <p className="text-sm text-slate-500 mb-2">{t("selectAllThatApply")}</p>
                 )}
                 {isMultiple ? (
                     currentQuestion.options.map((option, idx) => (
@@ -299,83 +301,107 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
                     <h1 className="text-xl font-bold">{quiz.title}</h1>
                     {isPreview && (
                         <Badge variant="secondary" className="mt-1">
-                            Preview Mode
+                            {t("previewMode")}
                         </Badge>
                     )}
                 </div>
-                {timeRemaining !== null && (
-                    <div className="flex items-center gap-2 text-lg font-semibold">
-                        <Clock className="w-5 h-5" />
-                        {formatTime(timeRemaining)}
-                    </div>
+                {expiresAt && (
+                    <QuizTimer 
+                        expiresAt={expiresAt} 
+                        onExpire={() => handleSubmit(true)} 
+                    />
                 )}
             </div>
 
-            {/* Progress */}
-            <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-600">
-                    Question {currentIndex + 1} of {shuffledQuestions.length}
-                </span>
-                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${((currentIndex + 1) / shuffledQuestions.length) * 100}%` }}
+            {/* Question Navigator */}
+            <div className="bg-slate-50 p-4 rounded-lg border">
+                <QuestionNavigator 
+                    questions={shuffledQuestions}
+                    currentIndex={showSummary ? -1 : currentIndex}
+                    answers={answers}
+                    onJumpToIndex={handleJumpToIndex}
+                />
+            </div>
+
+            {showSummary ? (
+                <div className="border rounded-lg p-6 bg-white shadow-sm">
+                    <QuizSummary 
+                        questions={shuffledQuestions}
+                        answers={answers}
+                        onSubmit={() => handleSubmit(false)}
+                        onJumpToIndex={handleJumpToIndex}
+                        isSubmitting={isSubmitting}
                     />
                 </div>
-            </div>
+            ) : (
+                <>
+                    {/* Progress */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600">
+                            {t("questionOf", { current: currentIndex + 1, total: shuffledQuestions.length })}
+                        </span>
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${((currentIndex + 1) / shuffledQuestions.length) * 100}%` }}
+                            />
+                        </div>
+                    </div>
 
-            {/* Question */}
-            <div className="border rounded-lg p-6 bg-white">
-                <div className="flex items-start justify-between mb-4">
-                    <h2 className="text-lg font-medium">{currentQuestion.text}</h2>
-                    <Badge variant="outline">{currentQuestion.points} pts</Badge>
-                </div>
+                    {/* Question */}
+                    <div className="border rounded-lg p-6 bg-white">
+                        <div className="flex items-start justify-between mb-4">
+                            <h2 className="text-lg font-medium">{currentQuestion.text}</h2>
+                            <Badge variant="outline">{currentQuestion.points} pts</Badge>
+                        </div>
 
-                {renderQuestion()}
-            </div>
+                        {renderQuestion()}
+                    </div>
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between">
-                <Button
-                    variant="outline"
-                    onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                    disabled={currentIndex === 0}
-                >
-                    <ChevronLeft className="w-4 h-4 me-2 rtl:rotate-180" />
-                    Previous
-                </Button>
-
-                <div className="flex gap-2">
-                    {!isPreview && (
+                    {/* Navigation */}
+                    <div className="flex items-center justify-between">
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                autosaveAttempt(attemptId, answers).then(() => toast.success("Saved"));
-                            }}
+                            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                            disabled={currentIndex === 0}
                         >
-                            <Save className="w-4 h-4 me-2" />
-                            Save
+                            <ChevronLeft className="w-4 h-4 me-2 rtl:rotate-180" />
+                            {t("previous")}
                         </Button>
-                    )}
 
-                    {currentIndex === shuffledQuestions.length - 1 ? (
-                        <Button
-                            onClick={() => handleSubmit(false)}
-                            disabled={isSubmitting || isPreview}
-                        >
-                            <Send className="w-4 h-4 me-2 rtl:rotate-180" />
-                            {isSubmitting ? "Submitting..." : "Submit Quiz"}
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={() => setCurrentIndex(Math.min(shuffledQuestions.length - 1, currentIndex + 1))}
-                        >
-                            Next
-                            <ChevronRight className="w-4 h-4 ms-2 rtl:rotate-180" />
-                        </Button>
-                    )}
-                </div>
-            </div>
+                        <div className="flex gap-2">
+                            {!isPreview && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        autosaveAttempt(attemptId, answers).then(() => toast.success(t("autoSaved")));
+                                    }}
+                                >
+                                    <Save className="w-4 h-4 me-2" />
+                                    {t("save")}
+                                </Button>
+                            )}
+
+                            {currentIndex === shuffledQuestions.length - 1 ? (
+                                <Button
+                                    onClick={() => setShowSummary(true)}
+                                    disabled={isSubmitting || isPreview}
+                                >
+                                    <ChevronRight className="w-4 h-4 me-2 rtl:rotate-180" />
+                                    {t("next")}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => setCurrentIndex(Math.min(shuffledQuestions.length - 1, currentIndex + 1))}
+                                >
+                                    {t("next")}
+                                    <ChevronRight className="w-4 h-4 ms-2 rtl:rotate-180" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

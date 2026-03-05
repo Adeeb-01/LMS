@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { getSafeImagePath } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
 
 export default async function MockCheckoutPage({ searchParams }) {
   const params = await searchParams;
   const courseId = params.courseId;
+  const t = await getTranslations("Checkout");
 
   // Authentication check
   const session = await auth();
@@ -32,10 +34,10 @@ export default async function MockCheckoutPage({ searchParams }) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Invalid Request</h2>
-              <p className="text-muted-foreground mb-4">No course specified.</p>
+              <h2 className="text-2xl font-bold mb-4">{t("invalidRequest")}</h2>
+              <p className="text-muted-foreground mb-4">{t("noCoursSpecified")}</p>
               <Button asChild>
-                <Link href="/courses">Browse Courses</Link>
+                <Link href="/courses">{t("browseCourses")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -52,10 +54,10 @@ export default async function MockCheckoutPage({ searchParams }) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Course Not Found</h2>
-              <p className="text-muted-foreground mb-4">The course you're looking for doesn't exist.</p>
+              <h2 className="text-2xl font-bold mb-4">{t("courseNotFound")}</h2>
+              <p className="text-muted-foreground mb-4">{t("courseNotFoundDesc")}</p>
               <Button asChild>
-                <Link href="/courses">Browse Courses</Link>
+                <Link href="/courses">{t("browseCourses")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -84,10 +86,10 @@ export default async function MockCheckoutPage({ searchParams }) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Course Not Available</h2>
-              <p className="text-muted-foreground mb-4">This course is not available for purchase.</p>
+              <h2 className="text-2xl font-bold mb-4">{t("courseNotAvailable")}</h2>
+              <p className="text-muted-foreground mb-4">{t("courseNotAvailableDesc")}</p>
               <Button asChild>
-                <Link href="/courses">Browse Courses</Link>
+                <Link href="/courses">{t("browseCourses")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -102,7 +104,7 @@ export default async function MockCheckoutPage({ searchParams }) {
         <Button variant="ghost" asChild>
           <Link href={`/courses/${courseId}`}>
             <ArrowLeft className="w-4 h-4 me-2 rtl:rotate-180" />
-            Back to Course
+            {t("backToCourse")}
           </Link>
         </Button>
       </div>
@@ -111,7 +113,7 @@ export default async function MockCheckoutPage({ searchParams }) {
         {/* Course Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Course Summary</CardTitle>
+            <CardTitle>{t("courseSummary")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -132,7 +134,7 @@ export default async function MockCheckoutPage({ searchParams }) {
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t">
-              <span className="font-semibold">Total</span>
+              <span className="font-semibold">{t("total")}</span>
               <span className="text-2xl font-bold">${coursePrice.toFixed(2)}</span>
             </div>
           </CardContent>
@@ -143,10 +145,10 @@ export default async function MockCheckoutPage({ searchParams }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
-              Payment (Simulated)
+              {t("paymentSimulated")}
             </CardTitle>
             <CardDescription>
-              This is a demo payment system. No real charges will be made.
+              {t("demoPaymentDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>

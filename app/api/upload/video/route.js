@@ -55,13 +55,13 @@ async function verifyLessonOwnership(lessonId, userId) {
     }
     
     // Find module that contains this lesson
-    const module = await Module.findOne({ lessonIds: lessonId }).lean();
-    if (!module) {
+    const courseModule = await Module.findOne({ lessonIds: lessonId }).lean();
+    if (!courseModule) {
         return { valid: false, error: 'Module not found' };
     }
     
     // Find course that contains this module
-    const course = await Course.findById(module.course).lean();
+    const course = await Course.findById(courseModule.course).lean();
     if (!course) {
         return { valid: false, error: 'Course not found' };
     }
@@ -69,7 +69,7 @@ async function verifyLessonOwnership(lessonId, userId) {
     // Check if user is the instructor or admin
     const isOwner = course.instructor.toString() === userId;
     
-    return { valid: isOwner, course, module, lesson };
+    return { valid: isOwner, course, courseModule, lesson };
 }
 
 /**

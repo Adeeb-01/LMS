@@ -60,8 +60,8 @@ export async function POST(request) {
             );
         }
 
-        const module = await getModuleBySlug(moduleSlug);
-        if (!module) {
+        const courseModule = await getModuleBySlug(moduleSlug);
+        if (!courseModule) {
             return NextResponse.json(
                 { error: 'Module not found' },
                 { status: 404 }
@@ -69,7 +69,7 @@ export async function POST(request) {
         }
 
         // Verify lesson belongs to module
-        const lessonBelongsToModule = module.lessonIds?.some(
+        const lessonBelongsToModule = courseModule.lessonIds?.some(
             id => id.toString() === lessonId.toString()
         );
         if (!lessonBelongsToModule) {

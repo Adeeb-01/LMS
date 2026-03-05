@@ -4,14 +4,15 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent } from '@/components/ui/card';
 import { toastError, toastSuccess } from '@/lib/toast-helpers';
 import { useRouter } from 'next/navigation';
 import { Loader2, CreditCard, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useTranslations } from 'next-intl';
 
 export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userEmail, userName }) {
   const router = useRouter();
+  const t = useTranslations('Checkout');
   const [isPending, startTransition] = useTransition();
   const [simulateFailure, setSimulateFailure] = useState(false);
   const [error, setError] = useState('');
@@ -34,19 +35,19 @@ export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userE
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-          const errorMsg = data.error || data.message || 'Payment failed. Please try again.';
+          const errorMsg = data.error || data.message || t('paymentFailed');
           setError(errorMsg);
-          toastError('Payment Failed', errorMsg);
+          toastError(t('paymentFailed'), errorMsg);
           return;
         }
 
         // Success - redirect to success page
-        toastSuccess('Payment Successful!', 'You have been enrolled in the course.');
+        toastSuccess(t('paymentSuccessful'), t('enrolledInCourse'));
         router.push(`/enroll-success?referenceId=${data.referenceId}&courseId=${courseId}`);
       } catch (err) {
-        const errorMsg = err?.message || 'An unexpected error occurred. Please try again.';
+        const errorMsg = err?.message || t('paymentFailed');
         setError(errorMsg);
-        toastError('Payment Failed', errorMsg);
+        toastError(t('paymentFailed'), errorMsg);
       }
     });
   };
@@ -55,18 +56,18 @@ export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userE
     <div className="space-y-6">
       {/* User Info */}
       <div className="space-y-2">
-        <Label>Customer Name</Label>
+        <Label>{t('customerName')}</Label>
         <div className="text-sm text-muted-foreground">{userName}</div>
       </div>
 
       <div className="space-y-2">
-        <Label>Email</Label>
+        <Label>{t('email')}</Label>
         <div className="text-sm text-muted-foreground">{userEmail}</div>
       </div>
 
       {/* Payment Amount */}
       <div className="space-y-2">
-        <Label>Amount to Pay</Label>
+        <Label>{t('amountToPay')}</Label>
         <div className="text-2xl font-bold">${coursePrice.toFixed(2)}</div>
       </div>
 
@@ -81,7 +82,7 @@ export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userE
           htmlFor="simulate-failure"
           className="text-sm font-normal cursor-pointer"
         >
-          Simulate payment failure (for testing)
+          {t('simulateFailure')}
         </Label>
       </div>
 
@@ -97,7 +98,7 @@ export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userE
       <Alert>
         <CreditCard className="h-4 w-4" />
         <AlertDescription>
-          This is a simulated payment. No real charges will be made. Click "Pay Now" to complete the demo purchase.
+          {t('simulatedPaymentInfo')}
         </AlertDescription>
       </Alert>
 
@@ -111,18 +112,18 @@ export function CheckoutForm({ courseId, coursePrice, courseTitle, userId, userE
         {isPending ? (
           <>
             <Loader2 className="w-4 h-4 me-2 animate-spin" />
-            Processing...
+            {t('processing')}
           </>
         ) : (
           <>
             <CreditCard className="w-4 h-4 me-2" />
-            Pay Now (Simulated)
+            {t('payNowSimulated')}
           </>
         )}
       </Button>
 
       <p className="text-xs text-center text-muted-foreground">
-        By clicking "Pay Now", you agree that this is a demo payment and no real transaction will occur.
+        {t('payNowDisclaimer')}
       </p>
     </div>
   );

@@ -45,17 +45,17 @@ const Module = async ({ params }) => {
     );
   }
 
-  const module = await getModule(moduleId);
-  const sanitizedModule = sanitizeData(module);
+  const courseModule = await getModule(moduleId);
+  const sanitizedModule = sanitizeData(courseModule);
 
-  const rawlessons = (await replaceMongoIdInArray(module?.lessonIds))
+  const rawlessons = (await replaceMongoIdInArray(courseModule?.lessonIds))
     .sort((a, b) => a.order - b.order);
 
   const lessons = sanitizeData(rawlessons);
 
   return (
     <>
-      {!module?.active && (
+      {!courseModule?.active && (
         <AlertBanner
           label={t("unpublishedBanner")}
           variant="warning"
@@ -87,7 +87,7 @@ const Module = async ({ params }) => {
                 <h2 className="text-xl">{t("customizeModule")}</h2>
               </div>
               <ModuleTitleForm
-                initialData={{ title: module.title }}
+                initialData={{ title: courseModule.title }}
                 courseId={courseId}
                 chapterId={moduleId}
               />
