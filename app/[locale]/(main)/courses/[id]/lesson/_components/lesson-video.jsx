@@ -56,20 +56,27 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
         if (!ended) return;
         let cancelled = false;
         (async () => {
-            const res = await fetch("/api/lesson-watch", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    courseId,
-                    lessonId: lesson.id,
-                    moduleSlug: module,
-                    state: "completed",
-                    lastTime: duration,
-                }),
-            });
-            if (res.status === 200 && !cancelled) {
-                setEnded(false);
-                router.refresh();
+            try {
+                const res = await fetch("/api/lesson-watch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({
+                        courseId,
+                        lessonId: lesson.id,
+                        moduleSlug: module,
+                        state: "completed",
+                        lastTime: duration,
+                    }),
+                });
+                const ok = res.status === 200;
+                console.log("[lesson-video] completion API response:", res.status, "lessonId:", lesson.id);
+                if (!cancelled && ok) {
+                    console.log("[lesson-video] calling router.refresh()");
+                    router.refresh();
+                }
+            } finally {
+                if (!cancelled) setEnded(false);
             }
         })();
         return () => { cancelled = true; };

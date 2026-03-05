@@ -23,7 +23,7 @@ const InstructorProfile = async ({ params }) => {
     courseDetailsByInstructor?.insImage &&
       courseDetailsByInstructor.insImage.trim() !== ""
       ? courseDetailsByInstructor.insImage
-      : "/assets/images/instructors/default.jpg";
+      : "/assets/images/instructors/profile.jpg";
 
   return (
     <section id="categories" className="space-y-6 py-6 lg:py-12">
@@ -72,12 +72,11 @@ const InstructorProfile = async ({ params }) => {
             </div>
 
             <p className="text-gray-600 text-xs leading-[1.8] text-justify">
-              Hi! I'm Kazi Ariyan. I'm a web developer with a serious love for teaching I
+              Hi! I'm Adeeb. I'm a web developer with a serious love for teaching I
               am a founder of easy Learning and a passionate Web Developer, Programmer &
               Instructor.
               <br />
-              I am working online for the last 9 years and have created several successful
-              websites running on the internet. I try to create a project-based course that
+ I try to create a project-based course that
               helps you to learn professionally and make you fell as a complete developer.
               easy learning exists to help you succeed in life.
             </p>

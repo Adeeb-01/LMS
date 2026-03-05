@@ -6,6 +6,8 @@ import { getCourseDetails } from "@/queries/courses";
 import { replaceMongoIdInArray, replaceMongoIdInObject } from "@/lib/convertData";
 import { getLessonBySlug } from "@/queries/lessons";
 
+export const dynamic = "force-dynamic";
+
 const Course = async ({ params, searchParams }) => {
 	const { id } = await params;
 	const resolvedSearchParams = await searchParams;

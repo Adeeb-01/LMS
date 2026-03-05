@@ -1,11 +1,8 @@
 import React from 'react';
 import { Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getLesson } from '@/queries/lessons';
 
-const CourseLessonList = async ({lessonId}) => {
-
-    const lesson = await getLesson(lessonId)
+const CourseLessonList = ({ lesson }) => {
     //console.log(lesson);
 
     return (

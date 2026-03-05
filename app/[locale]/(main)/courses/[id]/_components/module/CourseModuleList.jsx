@@ -37,8 +37,8 @@ const CourseModuleList = async ({ module }) => {
 
         <div className="space-y-3">
             {
-                module.lessonIds && module?.lessonIds.map(lessonId => (
-         <CourseLessonList key={lessonId} lessonId={lessonId} />
+                module.lessonIds && module?.lessonIds.map(lesson => (
+         <CourseLessonList key={lesson?.id ?? lesson?._id} lesson={lesson} />
                 ))
             } 
     

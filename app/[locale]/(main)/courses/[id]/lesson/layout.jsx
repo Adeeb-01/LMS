@@ -4,6 +4,8 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { redirect } from "next/navigation";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 
+export const dynamic = "force-dynamic";
+
 const CourseLayout = async ({ children, params }) => {
   const { id } = await params;
   const loggedinUser = await getLoggedInUser();

@@ -4,6 +4,7 @@ import { getLesson } from "@/queries/lessons";
 import { getModuleBySlug } from "@/queries/modules";
 import { createWatchReport } from "@/queries/reports";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { dbConnect } from "@/service/mongo";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import { getCourseDetails } from "@/queries/courses";
@@ -119,7 +120,7 @@ export async function POST(request) {
                 watchEntry["created_at"] = new Date();
                 await Watch.create(watchEntry);
             } 
-        } else if (state === COMPLETED){
+        } else if (state === COMPLETED) {
             if (!found) {
                 watchEntry["created_at"] = new Date();
                 await Watch.create(watchEntry);
@@ -129,11 +130,16 @@ export async function POST(request) {
                     watchEntry["modified_at"] = new Date();
                     await Watch.findByIdAndUpdate(found._id, {
                         state: COMPLETED,
-                        modified_at: new Date()
+                        modified_at: new Date(),
                     });
                     await updateReport(loggedinUser.id, courseId, module.id, lessonId);
                 }
             }
+            // Aggressive cache revalidation: lesson layout + course page for both locales
+            revalidatePath(`/en/courses/${courseId}/lesson`, "layout");
+            revalidatePath(`/ar/courses/${courseId}/lesson`, "layout");
+            revalidatePath(`/en/courses/${courseId}`, "page");
+            revalidatePath(`/ar/courses/${courseId}`, "page");
         }
 
         return NextResponse.json(
