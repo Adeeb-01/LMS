@@ -37,7 +37,8 @@ export async function createLesson(data){
             throw new Error('Module not found');
         }
         
-        courseModule.lessonIds.push(createdLesson._id);
+        // Push the ObjectId (convert string back to ObjectId for lessonIds array)
+        courseModule.lessonIds.push(new mongoose.Types.ObjectId(createdLesson._id));
         await courseModule.save();
 
         return replaceMongoIdInObject(createdLesson);
@@ -55,12 +56,21 @@ export async function reOrderLesson(data){
             throw new Error('Unauthorized: Please log in');
         }
         
+        // Filter out entries with invalid ObjectIds (client may pass temporary IDs)
+        const validData = data.filter(element => 
+            element.id && mongoose.Types.ObjectId.isValid(element.id)
+        );
+        
+        if (validData.length === 0) {
+            return;
+        }
+        
         // Verify ownership of all lessons being reordered
         const { verifyOwnsAllLessons } = await import('@/lib/authorization');
-        const lessonIds = data.map(element => element.id);
+        const lessonIds = validData.map(element => element.id);
         await verifyOwnsAllLessons(lessonIds, user.id, user);
         
-        await Promise.all(data.map(async(element) => {
+        await Promise.all(validData.map(async(element) => {
             await Lesson.findByIdAndUpdate(element.id, {order: element.position});
         }));
     } catch (error) {

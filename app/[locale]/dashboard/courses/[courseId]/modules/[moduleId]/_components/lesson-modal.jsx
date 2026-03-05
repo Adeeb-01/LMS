@@ -21,6 +21,7 @@ import { LessonAccessForm } from "./lesson-access-form";
 import { VideoUrlForm } from "./video-url-form";
 import { LessonActions } from "./lesson-action";
 import { useRouter } from "next/navigation";
+import { PublishBadge } from "@/components/ui/publish-badge";
 
 export const LessonModal = ({ open, setOpen, courseId, lesson, moduleId }) => {
   const t = useTranslations("ChapterEdit");
@@ -59,7 +60,8 @@ export const LessonModal = ({ open, setOpen, courseId, lesson, moduleId }) => {
                 <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
                 {t("backToCourseSetup")}
               </Link>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-between">
+                <PublishBadge status={lesson?.active ? "published" : "draft"} />
                 <LessonActions lesson={lesson} moduleId={moduleId} onDelete={handleDelete} />
               </div>
             </div>

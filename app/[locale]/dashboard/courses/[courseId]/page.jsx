@@ -1,9 +1,4 @@
-import { IconBadge } from "@/components/icon-badge";
-import {
-  CircleDollarSign,
-  LayoutDashboard,
-  ListChecks,
-} from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { CategoryForm } from "./_components/category-form";
@@ -23,6 +18,13 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { getCourseWithOwnershipCheck } from "@/lib/authorization";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { CourseInfoSection } from "./_components/course-info-section";
+import { CourseMediaSection } from "./_components/course-media-section";
+import { CoursePricingSection } from "./_components/course-pricing-section";
+import { CourseStatusSection } from "./_components/course-status-section";
+import { PublishBadge } from "@/components/ui/publish-badge";
+import { validatePublishRequirementsAction } from "@/app/actions/course";
+import { PublishChecklist } from "./_components/publish-checklist";
 
 const EditCourse = async ({ params }) => {
   const t = await getTranslations("CourseEdit");
@@ -40,6 +42,8 @@ const EditCourse = async ({ params }) => {
   if (!course) {
     notFound();
   }
+
+  const validation = await validatePublishRequirementsAction(courseId);
   const categories = await getCategories();
 
   const mappedCategories = categories.map((c) => ({
@@ -80,72 +84,75 @@ const EditCourse = async ({ params }) => {
 
       <div className="p-6">
         <div className="flex items-center justify-between">
-          <Link href={`/dashboard/courses/${courseId}/quizzes`}>
-            <Button variant="outline">
-              <ListChecks className="w-4 h-4 me-2" />
-              {t("quizzes")}
-            </Button>
-          </Link>
-          <CourseActions courseId={courseId} isActive={course?.active} />
+          <div className="flex flex-col gap-y-2">
+            <div className="flex items-center gap-x-2">
+              <h1 className="text-2xl font-medium">{t("courseSetup")}</h1>
+              <PublishBadge 
+                published={course?.active} 
+                deleted={!!course?.deletedAt}
+              />
+            </div>
+            <Link href={`/dashboard/courses/${courseId}/quizzes`}>
+              <Button variant="outline" size="sm">
+                <ListChecks className="w-4 h-4 me-2" />
+                {t("quizzes")}
+              </Button>
+            </Link>
+          </div>
+          <CourseActions 
+            courseId={courseId} 
+            isActive={course?.active} 
+            canPublish={validation.canPublish}
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16">
-          {/* Left */}
-          <div>
-            <div className="flex items-center gap-x-2">
-              <IconBadge icon={LayoutDashboard} />
-              <h2 className="text-xl">{t("customizeCourse")}</h2>
-            </div>
+        <div className="mt-6">
+          <PublishChecklist missing={validation.missing} />
+        </div>
 
-            <TitleForm
-              initialData={{ title: course?.title }}
-              courseId={courseId}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
+          {/* Left Column */}
+          <div className="space-y-6">
+            <CourseInfoSection title={t("basicInfo")}>
+              <TitleForm
+                initialData={{ title: course?.title }}
+                courseId={courseId}
+              />
+              <SubTitleForm
+                initialData={{ subtitle: course?.subtitle }}
+                courseId={courseId}
+              />
+              <DescriptionForm
+                initialData={{ description: course?.description }}
+                courseId={courseId}
+              />
+              <CategoryForm
+                initialData={{ value: course?.category?.title }}
+                courseId={courseId}
+                options={mappedCategories}
+              />
+            </CourseInfoSection>
 
-            <SubTitleForm
-              initialData={{ subtitle: course?.subtitle }}
-              courseId={courseId}
-            />
-
-            <DescriptionForm
-              initialData={{ description: course?.description }}
-              courseId={courseId}
-            />
-
-            <ImageForm
-              initialData={{ imageUrl: courseImageUrl }}
-              courseId={courseId}
-            />
-
-            <CategoryForm
-              initialData={{ value: course?.category?.title }}
-              courseId={courseId}
-              options={mappedCategories}
-            />
+            <CourseMediaSection title={t("courseMedia")}>
+              <ImageForm
+                initialData={{ imageUrl: courseImageUrl }}
+                courseId={courseId}
+              />
+            </CourseMediaSection>
           </div>
 
-          {/* Right */}
+          {/* Right Column */}
           <div className="space-y-6">
-            <div>
-              <div className="flex items-center gap-x-2 mb-6">
-                <IconBadge icon={ListChecks} />
-                <h2 className="text-xl">{t("courseModules")}</h2>
-              </div>
-
+            <CourseStatusSection title={t("courseModules")}>
               <ModulesForm initialData={modules} courseId={courseId} />
-            </div>
+            </CourseStatusSection>
 
-            <div>
-              <div className="flex items-center gap-x-2">
-                <IconBadge icon={CircleDollarSign} />
-                <h2 className="text-xl">{t("sellCourse")}</h2>
-              </div>
-
+            <CoursePricingSection title={t("coursePricing")}>
               <PriceForm
                 initialData={{ price: course?.price }}
                 courseId={courseId}
               />
-            </div>
+            </CoursePricingSection>
           </div>
         </div>
       </div>

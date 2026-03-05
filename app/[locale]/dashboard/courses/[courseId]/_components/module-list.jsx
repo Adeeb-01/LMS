@@ -8,12 +8,12 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { Grip, Pencil } from "lucide-react";
+import { Grip, Pencil, Trash } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { PublishBadge } from "@/components/ui/publish-badge";
 
-export const ModuleList = ({ items, onReorder, onEdit }) => {
+export const ModuleList = ({ items, onReorder, onEdit, onDelete }) => {
   const t = useTranslations("CourseEdit");
   const [isMounted, setIsMounted] = useState(false);
   const [modules, setModules] = useState(items);
@@ -81,17 +81,14 @@ export const ModuleList = ({ items, onReorder, onEdit }) => {
                     </div>
                     <span dir="auto">{module.title}</span>
                     <div className="ms-auto pe-2 flex items-center gap-x-2">
-                      <Badge
-                        className={cn(
-                          "bg-gray-500",
-                          module.active && "bg-emerald-600"
-                        )}
-                      >
-                        {module.active ? t("published") : t("draft")}
-                      </Badge>
+                      <PublishBadge status={module.active ? "published" : "draft"} />
                       <Pencil
                         onClick={() => onEdit(module.id)}
                         className="w-4 h-4 cursor-pointer hover:opacity-75 transition"
+                      />
+                      <Trash
+                        onClick={() => onDelete(module.id)}
+                        className="w-4 h-4 cursor-pointer hover:opacity-75 transition text-destructive"
                       />
                     </div>
                   </div>

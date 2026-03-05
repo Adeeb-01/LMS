@@ -89,3 +89,21 @@
       @apply bg-background text-foreground;
     }
   }
+
+  /* Use Cairo font for Arabic locale - outside @layer for higher specificity */
+  html[lang="ar"],
+  html[lang="ar"] body,
+  html[lang="ar"] *,
+  html[lang="ar"] button,
+  html[lang="ar"] input,
+  html[lang="ar"] select,
+  html[lang="ar"] textarea,
+  html[lang="ar"] [data-sonner-toast],
+  html[lang="ar"] [data-radix-popper-content-wrapper],
+  html[lang="ar"] [role="alertdialog"],
+  html[lang="ar"] [role="dialog"],
+  html[lang="ar"] [role="alert"],
+  html[lang="ar"] .toaster,
+  html[lang="ar"] .toast {
+    font-family: var(--font-cairo), 'Cairo', system-ui, sans-serif !important;
+  }

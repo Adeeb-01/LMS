@@ -47,6 +47,15 @@ const courseSchema = new Schema({
         default: Date.now,
         type: Date
     },
+    deletedAt:{
+        type: Date,
+        default: null
+    },
+    deletedBy:{
+        type: Schema.ObjectId,
+        ref: "User",
+        default: null
+    },
 });
 
 // Update modifiedOn before saving
@@ -54,4 +63,7 @@ courseSchema.pre('save', function(next) {
     this.modifiedOn = new Date();
     next();
 });
+
+courseSchema.index({ deletedAt: 1 });
+
 export const Course = mongoose.models.Course ?? mongoose.model("Course",courseSchema);

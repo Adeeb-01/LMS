@@ -64,12 +64,14 @@ export const LessonForm = ({ initialData, moduleId,courseId }) => {
         setLessons((lessons) => [
           ...lessons,
           {
-            id: lesson?.id ?? lesson?._id?.toString?.(),
+            id: lesson?.id,
             title: values.title,
+            active: false,
           },
         ]);
         toast.success(t("lessonCreated"));
         toggleCreating();
+        form.reset();
         router.refresh();
       } catch (error) {
         toast.error(t("somethingWentWrong"));

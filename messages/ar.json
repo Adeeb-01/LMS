@@ -259,6 +259,11 @@
     "noCategory": "لا يوجد تصنيف",
     "noPrice": "لا يوجد سعر",
     "noModule": "لا توجد وحدة",
+    "basicInfo": "المعلومات الأساسية",
+    "courseMedia": "وسائط الدورة",
+    "coursePricing": "تسعير الدورة",
+    "courseStatus": "حالة الدورة",
+    "courseSetup": "إعداد الدورة",
     "addModule": "إضافة وحدة",
     "create": "إنشاء",
     "dragDropReorder": "اسحب وأفلت لإعادة ترتيب الوحدات",
@@ -281,7 +286,11 @@
     "coursePublished": "تم نشر الدورة",
     "courseUnpublished": "تم إلغاء نشر الدورة",
     "publishedCannotDelete": "لا يمكن حذف دورة منشورة. ألغِ النشر أولاً ثم احذف.",
-    "courseDeleted": "تم حذف الدورة بنجاح"
+    "courseDeleted": "تم حذف الدورة بنجاح",
+    "deleted": "محذوف",
+    "deleteModuleTitle": "حذف الوحدة",
+    "deleteModuleDescription": "هل أنت متأكد من حذف هذه الوحدة؟ لا يمكن التراجع عن هذا الإجراء.",
+    "deleteModuleWithLessonsDescription": "تحتوي هذه الوحدة على {count} درس (دروس). سيؤدي حذفها إلى حذف جميع دروسها أيضاً. هل أنت متأكد من المتابعة؟"
   },
   "DashboardRoot": {
     "totalCourses": "إجمالي الدورات",
@@ -296,9 +305,13 @@
     "tryAgain": "حاول مرة أخرى"
   },
   "CourseAdd": {
+    "pageTitle": "إنشاء دورة جديدة",
+    "pageDescription": "املأ جميع المعلومات أدناه لإنشاء دورتك الجديدة.",
     "courseTitle": "عنوان الدورة",
+    "courseSubtitle": "العنوان الفرعي للدورة",
     "courseDescription": "وصف الدورة",
     "titlePlaceholder": "مثال: 'مسرّع تفاعلي'",
+    "subtitlePlaceholder": "مثال: 'بناء تطبيق كامل من الصفر'",
     "descriptionPlaceholder": "نظرة عامة على الدورة",
     "descriptionHint": "اكتب وصفاً موجزاً لدورتك",
     "cancel": "إلغاء",
@@ -306,7 +319,11 @@
     "courseCreated": "تم إنشاء الدورة",
     "somethingWentWrong": "حدث خطأ ما",
     "titleRequired": "العنوان مطلوب!",
-    "descriptionRequired": "الوصف مطلوب!"
+    "descriptionRequired": "الوصف مطلوب!",
+    "thumbnailRequired": "الصورة المصغرة مطلوبة!",
+    "priceRequired": "السعر مطلوب!",
+    "categoryRequired": "التصنيف مطلوب!",
+    "creating": "جاري الإنشاء..."
   },
   "ChapterEdit": {
     "unpublishedBanner": "هذه الوحدة غير منشورة. لن تظهر في الدورة.",
@@ -358,11 +375,15 @@
     "videoUploadHint": "ارفع ملف فيديو (MP4, WebM). الحد الأقصى: 300 ميجابايت",
     "selectVideoFileBtn": "اختر ملف فيديو",
     "uploading": "جاري الرفع...",
+    "retrying": "جاري إعادة المحاولة",
+    "retry": "إعادة المحاولة",
+    "cancel": "إلغاء",
     "somethingWentWrong": "فشل رفع الفيديو. يرجى المحاولة مرة أخرى.",
     "lessonAccess": "الوصول للدرس",
     "editAccess": "تعديل الوصول",
     "chapterFreePreview": "هذا الفصل مجاني للمعاينة",
     "chapterNotFree": "هذا الفصل غير مجاني",
+    "freePreviewLabel": "معاينة مجانية",
     "freePreviewCheckbox": "حدّد هذا إذا أردت جعل هذا الفصل مجانياً للمعاينة",
     "moduleTitleUpdated": "تم تحديث عنوان الوحدة",
     "lessonPublished": "تم نشر الدرس",
@@ -659,8 +680,45 @@
     "putYourLearningDesc": "طبّق تعلمك في مشاريع حقيقية وتعلّم كل ما تحتاجه لرفع مستوى مسيرتك المهنية.",
     "putYourLearningAlt": "طبّق تعلمك"
   },
+  "Checkout": {
+    "invalidRequest": "طلب غير صالح",
+    "noCoursSpecified": "لم يتم تحديد دورة.",
+    "browseCourses": "تصفح الدورات",
+    "courseNotFound": "الدورة غير موجودة",
+    "courseNotFoundDesc": "الدورة التي تبحث عنها غير موجودة.",
+    "courseNotAvailable": "الدورة غير متاحة",
+    "courseNotAvailableDesc": "هذه الدورة غير متاحة للشراء.",
+    "backToCourse": "العودة للدورة",
+    "courseSummary": "ملخص الدورة",
+    "total": "المجموع",
+    "paymentSimulated": "الدفع (محاكاة)",
+    "demoPaymentDesc": "هذا نظام دفع تجريبي. لن يتم إجراء أي رسوم حقيقية.",
+    "customerName": "اسم العميل",
+    "email": "البريد الإلكتروني",
+    "amountToPay": "المبلغ المستحق",
+    "simulateFailure": "محاكاة فشل الدفع (للاختبار)",
+    "simulatedPaymentInfo": "هذا دفع محاكى. لن يتم إجراء أي رسوم حقيقية. انقر على \"ادفع الآن\" لإتمام الشراء التجريبي.",
+    "payNowSimulated": "ادفع الآن (محاكاة)",
+    "processing": "جاري المعالجة...",
+    "payNowDisclaimer": "بالنقر على \"ادفع الآن\"، فإنك توافق على أن هذا دفع تجريبي ولن تتم أي معاملة حقيقية.",
+    "paymentFailed": "فشل الدفع",
+    "paymentSuccessful": "تم الدفع بنجاح!",
+    "enrolledInCourse": "تم تسجيلك في الدورة."
+  },
   "Footer": {
     "builtBy": "صُمم بواسطة @ محمد أديب الصالح 2026"
+  },
+  "CoursePublish": {
+    "checklistTitle": "قائمة التحقق من النشر",
+    "errors": {
+      "Titleisrequired": "عنوان الدورة مفقود",
+      "Descriptionisrequired": "وصف الدورة مفقود",
+      "Thumbnailisrequired": "الصورة المصغرة للدورة مفقودة",
+      "Categoryisrequired": "تصنيف الدورة مفقود",
+      "Priceisrequired": "سعر الدورة مفقود",
+      "Atleastonemoduleisrequired": "أضف وحدة واحدة على الأقل",
+      "Atleastonelessonisrequiredinanymodule": "أضف درساً واحداً على الأقل في أي وحدة"
+    }
   },
   "Admin": {
     "adminPanel": "لوحة الإدارة",

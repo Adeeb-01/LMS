@@ -4,7 +4,6 @@ import VideoDescription from "./_components/video-description";
 import { LessonVideoWrapper } from "./_components/lesson-video-wrapper";
 import { getCourseDetails } from "@/queries/courses";
 import { replaceMongoIdInArray, replaceMongoIdInObject } from "@/lib/convertData";
-import { getLessonBySlug } from "@/queries/lessons";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +14,34 @@ const Course = async ({ params, searchParams }) => {
 	const course = await getCourseDetails(id);
 	const allModules = course?.modules ? replaceMongoIdInArray(course.modules).toSorted((a, b) => a.order - b.order) : [];
 
-	const defaultLesson = allModules.length > 0 && allModules[0]?.lessonIds?.length > 0
-		? replaceMongoIdInObject(allModules[0].lessonIds.toSorted((a, b) => a.order - b.order)[0])
-		: null;
+	// Find lesson and module from the course's populated data (NOT global lookup by slug)
+	let lessonToPay = null;
+	let defaultModule = null;
 
-	const lessonToPay = name ? await getLessonBySlug(name) : defaultLesson;
+	if (name) {
+		// Find the lesson by slug within THIS course's modules
+		for (const m of allModules) {
+			const sortedLessons = (m.lessonIds || []).toSorted((a, b) => a.order - b.order);
+			const foundLesson = sortedLessons.find(l => l.slug === name);
+			if (foundLesson) {
+				lessonToPay = replaceMongoIdInObject(foundLesson);
+				defaultModule = m.slug;
+				break;
+			}
+		}
+	}
 
-	const defaultModule = module ?? (allModules.length > 0 ? allModules[0].slug : null);
+	// Fallback to first lesson of first module if no name or lesson not found
+	if (!lessonToPay && allModules.length > 0 && allModules[0]?.lessonIds?.length > 0) {
+		const sortedLessons = allModules[0].lessonIds.toSorted((a, b) => a.order - b.order);
+		lessonToPay = replaceMongoIdInObject(sortedLessons[0]);
+		defaultModule = allModules[0].slug;
+	}
+
+	// Use URL module param only if lesson wasn't found by name (shouldn't normally happen)
+	if (!defaultModule && module) {
+		defaultModule = module;
+	}
 
 	// Serialize for client components (strip ObjectId/Buffer/toJSON)
 	const lessonPlain = lessonToPay ? JSON.parse(JSON.stringify(lessonToPay)) : null;

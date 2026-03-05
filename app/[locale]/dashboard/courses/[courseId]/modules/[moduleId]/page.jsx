@@ -16,6 +16,7 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { assertInstructorOwnsModule } from "@/lib/authorization";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { PublishBadge } from "@/components/ui/publish-badge";
 
 const Module = async ({ params }) => {
   const t = await getTranslations("ChapterEdit");
@@ -73,7 +74,11 @@ const Module = async ({ params }) => {
               {t("backToCourseSetup")}
             </Link>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-x-2">
+                <h1 className="text-2xl font-medium">{t("customizeModule")}</h1>
+                <PublishBadge published={courseModule?.active} />
+              </div>
               <ModuleActions module={sanitizedModule} courseId={courseId} />
             </div>
           </div>

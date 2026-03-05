@@ -11,8 +11,8 @@ import {
 import { Grip, Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { CirclePlay } from "lucide-react";
+import { PublishBadge } from "@/components/ui/publish-badge";
 
 export const LessonList = ({ items, onReorder, onEdit }) => {
   const t = useTranslations("ChapterEdit");
@@ -85,14 +85,9 @@ export const LessonList = ({ items, onReorder, onEdit }) => {
                       <span dir="auto">{module.title}</span>
                     </div>
                     <div className="ms-auto pe-2 flex items-center gap-x-2">
-                      <Badge
-                        className={cn(
-                          "bg-gray-500",
-                          module.active && "bg-emerald-600"
-                        )}
-                      >
-                        {module.active ? t("published") : t("draft")}
-                      </Badge>
+                      <PublishBadge 
+                        status={module.active ? "published" : "draft"} 
+                      />
                       <Pencil
                         onClick={() => onEdit(module.id)}
                         className="w-4 h-4 cursor-pointer hover:opacity-75 transition"

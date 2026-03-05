@@ -97,8 +97,8 @@ As an instructor, I want a clear publishing workflow so that I understand when m
 
 ### Edge Cases
 
-- What happens when an instructor tries to delete a course with active enrollments?
-- How does the system handle video upload failures mid-upload?
+- When an instructor deletes a course with active enrollments, the system performs a soft delete: hides course from catalog, preserves enrollment records, and enrolled students retain access
+- Video upload failures: system auto-retries up to 3 times, then shows error with option to retry manually or cancel
 - What happens when an instructor tries to publish a course with no modules or lessons?
 - How does the system handle concurrent edits to the same course by the same instructor in different tabs?
 - What happens when a module or lesson title contains special characters or is very long?
@@ -120,12 +120,14 @@ As an instructor, I want a clear publishing workflow so that I understand when m
 - **FR-010**: System MUST allow creating lessons with title, description, video source, and access level
 - **FR-011**: System MUST support both local video upload and external video URL for lessons
 - **FR-012**: System MUST show upload progress for video uploads
+- **FR-012a**: System MUST auto-retry failed video uploads up to 3 times, then display error with manual retry/cancel options
 - **FR-013**: System MUST support drag-and-drop reordering of lessons within a module
 - **FR-014**: System MUST allow toggling lesson access between public (preview) and private (enrolled only)
 - **FR-015**: System MUST provide publish/unpublish functionality for courses, modules, and lessons
 - **FR-016**: System MUST show clear visual indicators for publish status at all levels
-- **FR-017**: System MUST validate publishing requirements (minimum content) before allowing publish
+- **FR-017**: System MUST validate publishing requirements before allowing publish: course must have at least 1 module containing at least 1 lesson
 - **FR-018**: System MUST preserve enrolled student access when unpublishing a course
+- **FR-019**: System MUST perform soft delete for courses with active enrollments (hide from catalog, preserve records, maintain student access)
 
 ### Key Entities
 
@@ -145,6 +147,14 @@ As an instructor, I want a clear publishing workflow so that I understand when m
 - **SC-006**: 100% of course management operations provide clear success/error feedback
 - **SC-007**: Publish status is always visually clear without requiring additional clicks
 - **SC-008**: Instructors successfully complete course setup on first attempt at least 90% of the time
+
+## Clarifications
+
+### Session 2026-03-05
+
+- Q: What happens when an instructor tries to delete a course with active enrollments? → A: Soft delete - hide course from catalog, preserve enrollment records, enrolled students keep access
+- Q: What are the minimum publishing requirements for a course? → A: Basic content - require at least 1 module with at least 1 lesson
+- Q: How should the system handle video upload failures mid-upload? → A: Auto-retry up to 3 times, then show error with option to retry or cancel
 
 ## Assumptions
 

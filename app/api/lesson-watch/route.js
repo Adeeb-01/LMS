@@ -1,7 +1,7 @@
 import { getLoggedInUser } from "@/lib/loggedin-user";
 import { Watch } from "@/model/watch-model";
 import { getLesson } from "@/queries/lessons";
-import { getModuleBySlug } from "@/queries/modules";
+import { getModuleBySlugAndCourse } from "@/queries/modules";
 import { createWatchReport } from "@/queries/reports";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -60,10 +60,10 @@ export async function POST(request) {
             );
         }
 
-        const courseModule = await getModuleBySlug(moduleSlug);
+        const courseModule = await getModuleBySlugAndCourse(moduleSlug, courseId);
         if (!courseModule) {
             return NextResponse.json(
-                { error: 'Module not found' },
+                { error: 'Module not found for this course' },
                 { status: 404 }
             );
         }
@@ -101,17 +101,19 @@ export async function POST(request) {
             }
         }
 
+        const moduleId = courseModule._id || courseModule.id;
+
         const watchEntry = {
             lastTime: lastTime || 0,
             lesson: lesson.id,  
-            module: module.id, 
+            module: moduleId, 
             user: loggedinUser.id,
             state,  
         }
 
         const found = await Watch.findOne({
             lesson: lessonId,
-            module: module.id,
+            module: moduleId,
             user: loggedinUser.id
         }).lean();
 
@@ -124,7 +126,7 @@ export async function POST(request) {
             if (!found) {
                 watchEntry["created_at"] = new Date();
                 await Watch.create(watchEntry);
-                await updateReport(loggedinUser.id, courseId, module.id, lessonId);
+                await updateReport(loggedinUser.id, courseId, moduleId, lessonId);
             } else {
                 if (found.state === STARTED) {
                     watchEntry["modified_at"] = new Date();
@@ -132,7 +134,7 @@ export async function POST(request) {
                         state: COMPLETED,
                         modified_at: new Date(),
                     });
-                    await updateReport(loggedinUser.id, courseId, module.id, lessonId);
+                    await updateReport(loggedinUser.id, courseId, moduleId, lessonId);
                 }
             }
             // Aggressive cache revalidation: lesson layout + course page for both locales

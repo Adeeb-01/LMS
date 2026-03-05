@@ -8,6 +8,8 @@ alwaysApply: true
 Auto-generated from all feature plans. Last updated: 2026-03-05
 
 ## Active Technologies
+- JavaScript (JSX/JS) via Node.js / Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, React Hook Form, @hello-pangea/dnd, shadcn/ui, next-intl (002-refactor-course-management)
+- MongoDB via Mongoose 8 (002-refactor-course-management)
 
 - JavaScript (JSX/JS) via Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, shadcn/ui, next-intl (001-improve-quiz-system)
 
@@ -28,6 +30,7 @@ npm test; npm run lint
 JavaScript (JSX/JS) via Next.js 15 (App Router): Follow standard conventions
 
 ## Recent Changes
+- 002-refactor-course-management: Added JavaScript (JSX/JS) via Node.js / Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, React Hook Form, @hello-pangea/dnd, shadcn/ui, next-intl
 
 - 001-improve-quiz-system: Added JavaScript (JSX/JS) via Next.js 15 (App Router) + React 18, NextAuth v5, Mongoose 8, Zod 3, shadcn/ui, next-intl
 

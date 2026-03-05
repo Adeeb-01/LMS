@@ -9,7 +9,7 @@ export default function Error({ error, reset }) {
     }, [error]);
 
     return (
-        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+        <div style={{ padding: '50px', textAlign: 'center' }}>
             <h2 style={{ color: 'red' }}>حدث خطأ ما!</h2>
             <p>يرجى فتح الـ <b>Console</b> (F12) في المتصفح والبحث عن عبارة "الخطأ الحقيقي هو" لمعرفة السبب.</p>
             <button 

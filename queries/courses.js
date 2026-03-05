@@ -13,7 +13,7 @@ import { dbConnect } from "@/service/mongo";
 
 export async function getCourseList() {
     await dbConnect();
-    const courses = await Course.find({active:true}).select(["title","subtitle","thumbnail","modules","price","category","instructor"]).populate({
+    const courses = await Course.find({active:true, deletedAt: null}).select(["title","subtitle","thumbnail","modules","price","category","instructor"]).populate({
         path: "category",
         model: Category
     }).populate({
@@ -51,7 +51,7 @@ export async function getAllCourses() {
 // Get featured courses (most popular by enrollments or highest rated)
 export async function getFeaturedCourses(limit = 8) {
     await dbConnect();
-    const courses = await Course.find({active: true})
+    const courses = await Course.find({active: true, deletedAt: null})
         .select(["title","subtitle","thumbnail","modules","price","category","instructor","testimonials"])
         .populate({
             path: "category",
@@ -80,7 +80,7 @@ export async function getFeaturedCourses(limit = 8) {
 export async function getCourseStats() {
     await dbConnect();
     try {
-        const totalCourses = await Course.countDocuments({ active: true });
+        const totalCourses = await Course.countDocuments({ active: true, deletedAt: null });
         const totalCategories = await Category.countDocuments();
         const totalInstructors = await User.countDocuments({ role: 'instructor' });
         
@@ -119,7 +119,7 @@ export async function getCourseDetails(id) {
         return null;
     }
     
-    const course = await Course.findById(id)
+    const course = await Course.findOne({ _id: id, deletedAt: null })
     .populate({
         path: "category",
         model: Category 
@@ -159,7 +159,7 @@ function groupBy(array, keyFn){
 
 export async function getCourseDetailsByInstructor(instructorId,expand){
     await dbConnect();
-    const publishCourses = await Course.find({instructor: instructorId, active:true })
+    const publishCourses = await Course.find({instructor: instructorId, active:true, deletedAt: null })
     .populate({path: "category", model: Category })
     .populate({path: "testimonials", model: Testimonial })
     .populate({ path: "instructor", model: User})
@@ -216,7 +216,7 @@ export async function getCourseDetailsByInstructor(instructorId,expand){
     profilePicture : "Unknown"; 
 
     if (expand) {
-        const allCourses = await Course.find({ instructor: instructorId }).lean();
+        const allCourses = await Course.find({ instructor: instructorId, deletedAt: null }).lean();
         return {
             courses: serializeCourseList(allCourses?.flat() || []),
             enrollments: enrollments?.flat(),
@@ -251,7 +251,7 @@ export async function create(courseData) {
 export async function getCoursesByCategory(categoryId){
 
     try {
-        const courses = await Course.find({ category: categoryId }).populate("category").lean();
+        const courses = await Course.find({ category: categoryId, deletedAt: null }).populate("category").lean();
         return serializeCourseList(courses);
     } catch (error) {
         throw new Error(error);
@@ -281,6 +281,7 @@ export async function getRelatedCourses(currentCourseId,categoryId){
             category: categoryObjectId,
             _id: { $ne: currentCourseObjectId }, // Exclude current course
             active: true,
+            deletedAt: null,
         })
         .select("title thumbnail price").lean();
         return serializeCourseList(relatedCourses);

@@ -20,8 +20,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ModuleList } from "./module-list";
 import { getSlug } from "@/lib/convertData";
-import { createModule, reOrderModules } from "@/app/actions/module";
+import { createModule, reOrderModules, deleteModule } from "@/app/actions/module";
 import { useTranslations } from "next-intl";
+import { ModuleDeleteDialog } from "./module-delete-dialog";
 
 const formSchema = z.object({
   title: z.string().min(1),
@@ -39,10 +40,12 @@ const formSchema = z.object({
 // ];
 export const ModulesForm = ({ initialData, courseId }) => {
   const t = useTranslations("CourseEdit");
+  const tChapter = useTranslations("ChapterEdit");
   const [modules, setModules] = useState(initialData);
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const toggleCreating = () => setIsCreating((current) => !current);
 
@@ -69,12 +72,15 @@ export const ModulesForm = ({ initialData, courseId }) => {
       setModules((modules) => [
         ...modules,
         {
-          id: createdModule?.id ?? createdModule?._id?.toString?.(),
+          id: createdModule?.id,
           title: values.title,
+          active: false,
+          lessonIds: [],
         },
       ]);
       toast.success(t("moduleCreated"));
       toggleCreating();
+      form.reset();
       router.refresh();
     } catch (error) {
       toast.error(t("somethingWentWrong"));
@@ -82,11 +88,9 @@ export const ModulesForm = ({ initialData, courseId }) => {
   }; 
 
   const onReorder = async (updateData) => {
-    console.log({ updateData });
     try {
-      reOrderModules(updateData);
       setIsUpdating(true);
-
+      await reOrderModules(updateData);
       toast.success(t("chaptersReordered"));
       router.refresh();
     } catch {
@@ -100,8 +104,35 @@ export const ModulesForm = ({ initialData, courseId }) => {
     router.push(`/dashboard/courses/${courseId}/modules/${id}`);
   };
 
+  const onDelete = (id) => {
+    setDeletingId(id);
+  };
+
+  const onConfirmDelete = async () => {
+    try {
+      setIsUpdating(true);
+      await deleteModule(deletingId, courseId);
+      setModules((current) => current.filter((m) => m.id !== deletingId));
+      toast.success(tChapter("moduleDeleted"));
+      router.refresh();
+    } catch (error) {
+      toast.error(t("somethingWentWrong"));
+    } finally {
+      setIsUpdating(false);
+      setDeletingId(null);
+    }
+  };
+
+  const deletingModule = modules.find((m) => m.id === deletingId);
+
   return (
     <div className="relative mt-6 border bg-slate-100 rounded-md p-4">
+      <ModuleDeleteDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={onConfirmDelete}
+        lessonCount={deletingModule?.lessonIds?.length || 0}
+      />
       {isUpdating && (
         <div className="absolute h-full w-full bg-gray-500/20 inset-0 rounded-md flex items-center justify-center">
           <Loader2 className="animate-spin h-6 w-6 text-sky-700" />
@@ -160,6 +191,7 @@ export const ModulesForm = ({ initialData, courseId }) => {
           <ModuleList
             onEdit={onEdit}
             onReorder={onReorder}
+            onDelete={onDelete}
             items={modules || []}
           />
         </div>

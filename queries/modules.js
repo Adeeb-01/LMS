@@ -36,3 +36,13 @@ export async function getModuleBySlug(moduleSlug) {
         throw new Error(error);
     }
 }
+
+export async function getModuleBySlugAndCourse(moduleSlug, courseId) {
+    await dbConnect();
+    try {
+        const module = await Module.findOne({ slug: moduleSlug, course: courseId }).lean();
+        return replaceMongoIdInObject(module);
+    } catch (error) {
+        throw new Error(error);
+    }
+}

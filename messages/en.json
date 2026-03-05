@@ -259,6 +259,11 @@
     "noCategory": "No category",
     "noPrice": "No price",
     "noModule": "No module",
+    "basicInfo": "Basic Information",
+    "courseMedia": "Course Media",
+    "coursePricing": "Course Pricing",
+    "courseStatus": "Course Status",
+    "courseSetup": "Course Setup",
     "addModule": "Add a module",
     "create": "Create",
     "dragDropReorder": "Drag & Drop to reorder the modules",
@@ -281,7 +286,11 @@
     "coursePublished": "Course published",
     "courseUnpublished": "Course unpublished",
     "publishedCannotDelete": "A published course cannot be deleted. First unpublish it, then delete.",
-    "courseDeleted": "The course has been deleted successfully"
+    "courseDeleted": "The course has been deleted successfully",
+    "deleted": "Deleted",
+    "deleteModuleTitle": "Delete Module",
+    "deleteModuleDescription": "Are you sure you want to delete this module? This action cannot be undone.",
+    "deleteModuleWithLessonsDescription": "This module contains {count} lesson(s). Deleting it will also delete all its lessons. Are you sure you want to proceed?"
   },
   "DashboardRoot": {
     "totalCourses": "Total Courses",
@@ -296,9 +305,13 @@
     "tryAgain": "Try again"
   },
   "CourseAdd": {
+    "pageTitle": "Create a new course",
+    "pageDescription": "Fill in all the information below to create your new course.",
     "courseTitle": "Course Title",
+    "courseSubtitle": "Course Subtitle",
     "courseDescription": "Course Description",
     "titlePlaceholder": "e.g 'Reactive Accelerator'",
+    "subtitlePlaceholder": "e.g. 'Build a full-stack application from scratch'",
     "descriptionPlaceholder": "Course overview",
     "descriptionHint": "Write a brief description of your course",
     "cancel": "Cancel",
@@ -306,7 +319,11 @@
     "courseCreated": "Course created",
     "somethingWentWrong": "Something went wrong",
     "titleRequired": "Title is required!",
-    "descriptionRequired": "Description is required!"
+    "descriptionRequired": "Description is required!",
+    "thumbnailRequired": "Thumbnail is required!",
+    "priceRequired": "Price is required!",
+    "categoryRequired": "Category is required!",
+    "creating": "Creating..."
   },
   "ChapterEdit": {
     "unpublishedBanner": "This module is unpublished. It will not be visible in the course.",
@@ -358,11 +375,15 @@
     "videoUploadHint": "Upload a video file (MP4, WebM). Maximum size: 300MB",
     "selectVideoFileBtn": "Select Video File",
     "uploading": "Uploading...",
+    "retrying": "Retrying",
+    "retry": "Retry",
+    "cancel": "Cancel",
     "somethingWentWrong": "Failed to upload video. Please try again.",
     "lessonAccess": "Lesson access",
     "editAccess": "Edit access",
     "chapterFreePreview": "This chapter is free for preview",
     "chapterNotFree": "This chapter is not free",
+    "freePreviewLabel": "Free Preview",
     "freePreviewCheckbox": "Check this box if you want to make this chapter free for preview",
     "moduleTitleUpdated": "Module title updated",
     "lessonPublished": "Lesson published",
@@ -695,6 +716,18 @@
   },
   "Footer": {
     "builtBy": "Built by @ Mohammed Adeeb Alsaleh 2026"
+  },
+  "CoursePublish": {
+    "checklistTitle": "Publishing Checklist",
+    "errors": {
+      "Titleisrequired": "Course title is missing",
+      "Descriptionisrequired": "Course description is missing",
+      "Thumbnailisrequired": "Course thumbnail is missing",
+      "Categoryisrequired": "Course category is missing",
+      "Priceisrequired": "Course price is missing",
+      "Atleastonemoduleisrequired": "Add at least one module",
+      "Atleastonelessonisrequiredinanymodule": "Add at least one lesson to any module"
+    }
   },
   "Admin": {
     "adminPanel": "Admin Panel",

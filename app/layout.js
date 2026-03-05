@@ -27,6 +27,8 @@ const poppins = Inter({ subsets: ["latin"], variable: "--font-poppins" });
 const cairo = Cairo({
   subsets: ["latin", "arabic"],
   variable: "--font-cairo",
+  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
 export default async function RootLayout({ children }) {
@@ -47,7 +49,7 @@ export default async function RootLayout({ children }) {
           poppins.variable,
           cairo.variable,
           "antialiased",
-          locale === "ar" && "font-cairo"
+          locale === "ar" ? cairo.className : poppins.className
         )}
       >
         {children}

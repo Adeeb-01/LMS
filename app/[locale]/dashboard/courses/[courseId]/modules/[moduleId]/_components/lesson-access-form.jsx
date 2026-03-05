@@ -5,16 +5,17 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
  
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
   FormDescription,
   FormField,
   FormItem,
+  FormLabel,
 } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
-import { Pencil } from "lucide-react";
+import { Pencil, Eye, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ export const LessonAccessForm = ({ initialData, courseId, lessonId }) => {
         payload["access"] = "private";
       }
       await updateLesson(lessonId,payload);
-      setFree(!free); 
+      setFree(values.isFree); 
       toast.success(t("lessonUpdated"));
       toggleEdit();
       router.refresh();
@@ -77,18 +78,19 @@ export const LessonAccessForm = ({ initialData, courseId, lessonId }) => {
         </Button>
       </div>
       {!isEditing && (
-        <p
-          className={cn(
-            "text-sm mt-2",
-            !free && "text-slate-500 italic"
-          )}
-        >
+        <div className="flex items-center gap-x-2 mt-2">
           {free ? (
-            <>{t("chapterFreePreview")}</>
+            <div className="flex items-center gap-x-2 text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md text-sm">
+              <Eye className="h-4 w-4" />
+              <span>{t("chapterFreePreview")}</span>
+            </div>
           ) : (
-            <>{t("chapterNotFree")}</>
+            <div className="flex items-center gap-x-2 text-slate-700 bg-slate-200 px-2 py-1 rounded-md text-sm">
+              <Lock className="h-4 w-4" />
+              <span>{t("chapterNotFree")}</span>
+            </div>
           )}
-        </p>
+        </div>
       )}
       {isEditing && (
         <Form {...form}>
@@ -100,18 +102,21 @@ export const LessonAccessForm = ({ initialData, courseId, lessonId }) => {
               control={form.control}
               name="isFree"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
+                <FormItem className="flex flex-row items-center justify-between rounded-md border p-4 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                      {t("freePreviewLabel")}
+                    </FormLabel>
                     <FormDescription>
                       {t("freePreviewCheckbox")}
                     </FormDescription>
                   </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
