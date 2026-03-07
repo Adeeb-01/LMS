@@ -1,19 +1,20 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [TEMPLATE] → 1.0.0
-Modified principles: N/A (initial ratification from blank template)
+Version change: 1.0.0 → 1.1.0
+Modified principles: 
+  - N/A
 Added sections:
-  - Core Principles (I–V)
-  - Technology Stack & Constraints
-  - Development Workflow & Quality Gates
-  - Governance
-Removed sections: None (template placeholders replaced)
+  - Core Principles (VI. Code Quality & Maintainability)
+  - Core Principles (VII. Rigorous Testing Standards)
+  - Core Principles (VIII. User Experience (UX) Consistency)
+  - Core Principles (IX. Performance Requirements)
+Removed sections: None
 Templates requiring updates:
-  - .specify/templates/plan-template.md  ✅ Constitution Check section already present; aligns with these principles
+  - .specify/templates/plan-template.md  ✅ Constitution Check section updated to reflect nine principles
   - .specify/templates/spec-template.md  ✅ User story + acceptance scenario structure aligns with Principle V
-  - .specify/templates/tasks-template.md ✅ Phase-based organisation aligns with Principle V (Progressive Enhancement)
-Follow-up TODOs: None — all placeholders resolved.
+  - .specify/templates/tasks-template.md ✅ Tasks template updated to make tests mandatory per Principle VII
+Follow-up TODOs: None.
 -->
 
 # LMS Constitution
@@ -75,6 +76,30 @@ abstraction only when a simpler approach has been explicitly ruled out.
 **Rationale**: Incremental delivery reduces integration risk and ensures a working
 product exists at every checkpoint.
 
+### VI. Code Quality & Maintainability
+
+All code MUST adhere to strict formatting and linting rules. Complex logic MUST be documented with comments explaining the "why", not the "what". Functions and components MUST remain focused on a single responsibility. Code reviews MUST enforce these standards strictly.
+
+**Rationale**: High code quality reduces technical debt, accelerates onboarding, and minimizes the risk of regressions during refactoring.
+
+### VII. Rigorous Testing Standards
+
+Every new feature or bug fix MUST be accompanied by appropriate automated tests (unit, contract, or end-to-end). Critical paths—such as authentication, data mutations, and payment processing—MUST have comprehensive test coverage. Tests MUST be written and fail before implementation begins.
+
+**Rationale**: Automated tests are the safety net that allows for rapid iteration, refactoring, and deployment with confidence.
+
+### VIII. User Experience (UX) Consistency
+
+The application MUST provide a consistent, responsive, and accessible user experience across all devices. All UI components MUST adhere strictly to the established design system (shadcn/ui + Tailwind) and meet WCAG 2.1 AA accessibility guidelines. Custom styling SHOULD be minimized in favour of reusable design tokens.
+
+**Rationale**: A consistent and accessible UX builds trust, reduces user friction, and ensures the platform is usable by everyone regardless of their abilities.
+
+### IX. Performance Requirements
+
+The application MUST be optimized for performance. Client-side bundles MUST be kept minimal by leveraging React Server Components. API responses MUST be paginated or streamed where appropriate, and database queries MUST be optimized and properly indexed to prevent bottlenecks. Core web vitals MUST meet passing thresholds.
+
+**Rationale**: Fast load times and responsive interactions are critical for learner retention and ensuring the system scales efficiently under load.
+
 ## Technology Stack & Constraints
 
 - **Runtime**: Node.js via Next.js 15 (App Router). Pages and API routes use the
@@ -103,7 +128,7 @@ product exists at every checkpoint.
 ## Development Workflow & Quality Gates
 
 1. **Constitution Check** — Before any implementation begins, verify the planned feature
-   complies with all five Core Principles. Document violations and their justification in
+   complies with all nine Core Principles. Document violations and their justification in
    the plan's Complexity Tracking table.
 2. **Spec Before Code** — A feature specification (`spec.md`) and implementation plan
    (`plan.md`) MUST exist before any source file is created or modified.
@@ -115,7 +140,8 @@ product exists at every checkpoint.
 5. **Accessibility Baseline** — Interactive UI components MUST meet WCAG 2.1 AA contrast
    and keyboard-navigation requirements. shadcn/ui primitives satisfy this baseline;
    custom components MUST be verified.
-6. **Environment Hygiene** — Secrets MUST live in `.env` (never committed). All
+6. **Test Coverage** — All critical paths MUST have automated tests written and passing before the feature is merged.
+7. **Environment Hygiene** — Secrets MUST live in `.env` (never committed). All
    environment variables required by a feature MUST be documented in the README under
    "Quick Start".
 
@@ -140,4 +166,4 @@ confirming no principles are violated (or documenting justified exceptions).
 assumptions; MINOR — new principle or material section added; PATCH — wording
 clarification or typo fix.
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-05 | **Last Amended**: 2026-03-05
+**Version**: 1.1.0 | **Ratified**: 2026-03-05 | **Last Amended**: 2026-03-06
