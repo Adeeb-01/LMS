@@ -8,7 +8,7 @@ import { getCourseDetails, getRelatedCourses } from "@/queries/courses";
 import MoneyBack from "@/components/money-back";
 
 const SingleCoursePage = async ({ params }) => {
-  const { id } = await params;
+  const { id, locale } = await params;
 
   // Validate id exists
   if (!id) {
@@ -29,7 +29,7 @@ const SingleCoursePage = async ({ params }) => {
   return (
     <>
       <CourseDetailsIntro course={course} />
-      <CourseDetails course={course} />
+      <CourseDetails course={course} locale={locale} />
 
       {course?.testimonials && course.testimonials.length > 0 && (
         <Testimonials testimonials={course.testimonials} />

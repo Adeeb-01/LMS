@@ -3,11 +3,36 @@
 import { replaceMongoIdInObject } from "@/lib/convertData";
 import { Lesson } from "@/model/lesson.model";
 import { Module } from "@/model/module.model";
+import { LectureDocument } from "@/model/lecture-document.model";
+import { VideoTranscript } from "@/model/video-transcript.model";
+import { AlignmentJob } from "@/model/alignment-job.model";
 import { create } from "@/queries/lessons";
 import { lessonSchema } from "@/lib/validations";
 import mongoose from "mongoose";
 import { getLoggedInUser } from "@/lib/loggedin-user";
 import { dbConnect } from "@/service/mongo";
+
+export async function getLesson(lessonId) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            throw new Error('Unauthorized: Please log in');
+        }
+        
+        const { assertInstructorOwnsLesson } = await import('@/lib/authorization');
+        await assertInstructorOwnsLesson(lessonId, user.id, user);
+        
+        const lesson = await Lesson.findById(lessonId).lean();
+        if (!lesson) {
+            throw new Error('Lesson not found');
+        }
+        
+        return replaceMongoIdInObject(lesson);
+    } catch (error) {
+        throw new Error(error?.message || 'Failed to fetch lesson');
+    }
+}
 
 export async function createLesson(data){
     await dbConnect();
@@ -148,6 +173,12 @@ export async function deleteLesson(lessonId, moduleId){
         }
         
         courseModule.lessonIds.pull(new mongoose.Types.ObjectId(lessonId));
+        
+        // Cascade delete LectureDocument, VideoTranscript, and AlignmentJobs
+        await LectureDocument.deleteMany({ lessonId });
+        await VideoTranscript.deleteMany({ lessonId });
+        await AlignmentJob.deleteMany({ lessonId });
+        
         await Lesson.findByIdAndDelete(lessonId);
         await courseModule.save();
     } catch (error) {

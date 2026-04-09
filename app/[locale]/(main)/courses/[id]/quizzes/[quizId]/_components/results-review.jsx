@@ -1,11 +1,13 @@
 "use client";
 
-import { CheckCircle2, XCircle, Info, HelpCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Info, HelpCircle, Mic } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { OralAnswerStatus } from "@/components/questions/OralAnswerStatus";
+import { WatchExplanationLink } from "@/components/alignment/watch-explanation-link";
 
-export function ResultsReview({ review }) {
+export function ResultsReview({ review, courseId }) {
     const t = useTranslations("Quiz");
 
     if (!review || !review.questions) return null;
@@ -16,6 +18,8 @@ export function ResultsReview({ review }) {
             
             <div className="space-y-6">
                 {review.questions.map((question, index) => {
+                    const isOral = question.type === "oral";
+                    const isOralPending = isOral && question.oral && (question.oral.gradingStatus === "pending" || question.oral.gradingStatus === "evaluating");
                     const isCorrect = question.isCorrect;
                     const hasCorrectAnswer = !!question.correctAnswer;
                     const questionId = `question-${question._id}`;
@@ -25,6 +29,7 @@ export function ResultsReview({ review }) {
                             key={question._id} 
                             className={cn(
                                 "border rounded-lg p-6 bg-white transition-all",
+                                isOralPending ? "border-amber-200 bg-amber-50/30" :
                                 isCorrect ? "border-green-200 bg-green-50/30" : "border-red-200 bg-red-50/30"
                             )}
                             role="article"
@@ -41,7 +46,17 @@ export function ResultsReview({ review }) {
                                             <Badge variant="outline" className="text-xs">
                                                 {question.points} {t("points")}
                                             </Badge>
-                                            {isCorrect ? (
+                                            {isOral && (
+                                                <Badge variant="outline" className="text-xs">
+                                                    <Mic className="w-3 h-3 me-1" />
+                                                    {t("oral")}
+                                                </Badge>
+                                            )}
+                                            {isOralPending ? (
+                                                <Badge className="bg-amber-500 hover:bg-amber-600" role="status">
+                                                    {t("gradingPending")}
+                                                </Badge>
+                                            ) : isCorrect ? (
                                                 <Badge className="bg-green-600 hover:bg-green-700" role="status">
                                                     <CheckCircle2 className="w-3 h-3 me-1" aria-hidden="true" />
                                                     {t("correct")}
@@ -57,6 +72,25 @@ export function ResultsReview({ review }) {
                                 </div>
                             </div>
 
+                            {/* Oral question review */}
+                            {isOral && question.oral ? (
+                                <div className="ms-11">
+                                    <OralAnswerStatus
+                                        oral={question.oral}
+                                        questionPoints={question.points}
+                                    />
+                                    {question.sourceTimestamp && (
+                                        <div className="mt-4">
+                                            <WatchExplanationLink 
+                                                courseId={courseId}
+                                                lessonId={question.sourceTimestamp.lessonId}
+                                                lessonSlug={question.sourceTimestamp.lessonSlug}
+                                                startSeconds={question.sourceTimestamp.startSeconds}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
                             <div className="space-y-3 ms-11" role="group" aria-label={t("options")}>
                                 {question.options.map((option) => {
                                     const isSelected = question.studentAnswer.includes(option.id);
@@ -107,15 +141,24 @@ export function ResultsReview({ review }) {
                                 {hasCorrectAnswer && question.explanation && (
                                     <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg flex gap-3">
                                         <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                                        <div>
+                                        <div className="flex-1">
                                             <p className="text-sm font-bold text-blue-900 mb-1">{t("explanation")}</p>
-                                            <p className="text-sm text-blue-800 leading-relaxed">
+                                            <p className="text-sm text-blue-800 leading-relaxed mb-2">
                                                 {question.explanation}
                                             </p>
+                                            {question.sourceTimestamp && (
+                                                <WatchExplanationLink 
+                                                    courseId={courseId}
+                                                    lessonId={question.sourceTimestamp.lessonId}
+                                                    lessonSlug={question.sourceTimestamp.lessonSlug}
+                                                    startSeconds={question.sourceTimestamp.startSeconds}
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
                     );
                 })}

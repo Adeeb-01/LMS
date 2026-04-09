@@ -1,17 +1,24 @@
 import { Tabs,TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
  
 import CourseOverview from "./CourseOverview";
 import CourseCurriculam from "./CourseCurriculam";
 import CourseInstructor from "./CourseInstructor";
+import CourseSearch from "./course-search";
 import { SafeImage } from "@/components/safe-image";
 import { formatMyDate } from "@/lib/date";
 import { getTranslations } from "next-intl/server";
+import { auth } from "@/auth";
+import { getUserByEmail } from "@/queries/users";
+import { hasEnrollmentForCourse } from "@/queries/enrollments";
 
-const CourseDetails = async ({ course }) => {
+const CourseDetails = async ({ course, locale }) => {
   const t = await getTranslations("Courses");
   const lastModifiedDate = formatMyDate(course.modifiedOn);
 
-
+  const session = await auth();
+  const loggedInUser = await getUserByEmail(session?.user?.email);
+  const hasEnrollment = await hasEnrollmentForCourse(course?.id, loggedInUser?.id);
 
     return (
         <section className="py-8 md:py-12 lg:py-24">
@@ -48,19 +55,19 @@ const CourseDetails = async ({ course }) => {
           {/* Tab */}
           <div className="my-6">
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 my-6 max-w-[768px]">
+              <TabsList className={cn("grid w-full my-6 max-w-[768px]", hasEnrollment ? "grid-cols-4" : "grid-cols-3")}>
                 <TabsTrigger value="overview">{t("overview")}</TabsTrigger>
                 <TabsTrigger value="curriculum">{t("curriculum")}</TabsTrigger>
                 <TabsTrigger value="instructor">{t("instructor")}</TabsTrigger>
-                {/* <TabsTrigger value="reviews">Reviews</TabsTrigger> */}
+                {hasEnrollment && (
+                  <TabsTrigger value="search">{t("search") || "Search"}</TabsTrigger>
+                )}
               </TabsList>
-
 
               <TabsContent value="overview">
                 {/* each tab content can be independent component */}
                <CourseOverview course={course}/> 
               </TabsContent>
-
 
               <TabsContent value="curriculum">
                 {/* each tab content can be independent component */}
@@ -72,6 +79,12 @@ const CourseDetails = async ({ course }) => {
                 {/* each tab content can be independent component */}
             <CourseInstructor course={course}/>
               </TabsContent>
+
+              {hasEnrollment && (
+                <TabsContent value="search">
+                  <CourseSearch courseId={course.id} locale={locale} />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         </div>

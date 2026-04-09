@@ -59,6 +59,16 @@ const lessonSchema = new Schema({
         required: true, 
         type: Number
     },
+    lectureDocumentId: {
+        type: Schema.Types.ObjectId,
+        ref: 'LectureDocument',
+        required: false
+    },
+    courseId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Course',
+        required: false
+    },
      
 });
 export const Lesson = mongoose.models.Lesson ?? mongoose.model("Lesson",lessonSchema);

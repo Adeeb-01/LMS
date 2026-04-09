@@ -11,9 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { updateQuiz, deleteQuiz } from "@/app/actions/quizv2";
-import { Trash2, ArrowLeft } from "lucide-react";
+import { Trash2, ArrowLeft, Settings2, BarChart2, TrendingUp } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdaptiveConfigForm } from "./adaptive-config-form";
+import { PoolAnalysis } from "./pool-analysis";
+import { AdaptiveAnalyticsDashboard } from "./adaptive-analytics-dashboard";
 
 export function QuizEditForm({ quiz, courseId, course }) {
     const t = useTranslations("Quiz");
@@ -92,7 +96,7 @@ export function QuizEditForm({ quiz, courseId, course }) {
     });
 
     return (
-        <div className="max-w-2xl">
+        <div className="max-w-4xl">
             <Link href={`/dashboard/courses/${courseId}/quizzes`}>
                 <Button variant="ghost" className="mb-6">
                     <ArrowLeft className="w-4 h-4 me-2 rtl:rotate-180" />
@@ -112,157 +116,193 @@ export function QuizEditForm({ quiz, courseId, course }) {
                 </Button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Title */}
-                <div>
-                    <Label htmlFor="title">{t("titleLabel")}</Label>
-                    <Input
-                        id="title"
-                        {...register("title", { required: t("titleRequired") })}
-                        className="mt-1"
-                    />
-                    {errors.title && (
-                        <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
+            <Tabs defaultValue="basic" className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="basic" className="flex items-center gap-2">
+                        <Settings2 className="w-4 h-4" />
+                        {t("basicInfo")}
+                    </TabsTrigger>
+                    <TabsTrigger value="adaptive" className="flex items-center gap-2">
+                        <BarChart2 className="w-4 h-4" />
+                        {t("adaptiveConfig")}
+                    </TabsTrigger>
+                    {quiz.adaptiveConfig?.enabled && (
+                        <TabsTrigger value="analytics" className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4" />
+                            {t("analytics")}
+                        </TabsTrigger>
                     )}
-                </div>
+                </TabsList>
 
-                {/* Description */}
-                <div>
-                    <Label htmlFor="description">{t("descriptionLabel")}</Label>
-                    <Textarea
-                        id="description"
-                        {...register("description")}
-                        className="mt-1"
-                        rows={3}
-                    />
-                </div>
+                <TabsContent value="basic">
+                    <div className="max-w-2xl bg-white p-6 rounded-lg border shadow-sm">
+                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                            {/* Title */}
+                            <div>
+                                <Label htmlFor="title">{t("titleLabel")}</Label>
+                                <Input
+                                    id="title"
+                                    {...register("title", { required: t("titleRequired") })}
+                                    className="mt-1"
+                                />
+                                {errors.title && (
+                                    <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
+                                )}
+                            </div>
 
-                {/* Lesson (read-only if already set) */}
-                <div>
-                    <Label htmlFor="lessonId">{t("attachedToLesson")}</Label>
-                    <Input
-                        id="lessonId"
-                        value={quiz.lessonId ? allLessons.find(l => l.id === quiz.lessonId)?.title || t("unknown") : t("courseLevelQuiz")}
-                        disabled
-                        className="mt-1 bg-slate-50"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">{t("lessonCannotChange")}</p>
-                </div>
+                            {/* Description */}
+                            <div>
+                                <Label htmlFor="description">{t("descriptionLabel")}</Label>
+                                <Textarea
+                                    id="description"
+                                    {...register("description")}
+                                    className="mt-1"
+                                    rows={3}
+                                />
+                            </div>
 
-                {/* Pass Percent */}
-                <div>
-                    <Label htmlFor="passPercent">{t("passPercentage")}</Label>
-                    <Input
-                        id="passPercent"
-                        type="number"
-                        min="0"
-                        max="100"
-                        {...register("passPercent", { min: 0, max: 100 })}
-                        className="mt-1"
-                    />
-                </div>
+                            {/* Lesson (read-only if already set) */}
+                            <div>
+                                <Label htmlFor="lessonId">{t("attachedToLesson")}</Label>
+                                <Input
+                                    id="lessonId"
+                                    value={quiz.lessonId ? allLessons.find(l => l.id === quiz.lessonId)?.title || t("unknown") : t("courseLevelQuiz")}
+                                    disabled
+                                    className="mt-1 bg-slate-50"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">{t("lessonCannotChange")}</p>
+                            </div>
 
-                {/* Time Limit */}
-                <div>
-                    <Label htmlFor="timeLimitSec">{t("timeLimit")}</Label>
-                    <Input
-                        id="timeLimitSec"
-                        type="number"
-                        min="1"
-                        {...register("timeLimitSec")}
-                        className="mt-1"
-                        placeholder={t("noTimeLimitPlaceholder")}
-                    />
-                </div>
+                            {/* Pass Percent */}
+                            <div>
+                                <Label htmlFor="passPercent">{t("passPercentage")}</Label>
+                                <Input
+                                    id="passPercent"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    {...register("passPercent", { min: 0, max: 100 })}
+                                    className="mt-1"
+                                />
+                            </div>
 
-                {/* Max Attempts */}
-                <div>
-                    <Label htmlFor="maxAttempts">{t("maxAttemptsLabel")}</Label>
-                    <Input
-                        id="maxAttempts"
-                        type="number"
-                        min="1"
-                        {...register("maxAttempts")}
-                        className="mt-1"
-                        placeholder={t("unlimitedPlaceholder")}
-                    />
-                </div>
+                            {/* Time Limit */}
+                            <div>
+                                <Label htmlFor="timeLimitSec">{t("timeLimit")}</Label>
+                                <Input
+                                    id="timeLimitSec"
+                                    type="number"
+                                    min="1"
+                                    {...register("timeLimitSec")}
+                                    className="mt-1"
+                                    placeholder={t("noTimeLimitPlaceholder")}
+                                />
+                            </div>
 
-                {/* Show Answers Policy */}
-                <div>
-                    <Label htmlFor="showAnswersPolicy">{t("showAnswersPolicy")}</Label>
-                    <Select
-                        defaultValue={watch("showAnswersPolicy")}
-                        onValueChange={(value) => setValue("showAnswersPolicy", value)}
-                    >
-                        <SelectTrigger className="mt-1">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="never">{t("never")}</SelectItem>
-                            <SelectItem value="after_submit">{t("afterSubmit")}</SelectItem>
-                            <SelectItem value="after_pass">{t("afterPass")}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                            {/* Max Attempts */}
+                            <div>
+                                <Label htmlFor="maxAttempts">{t("maxAttemptsLabel")}</Label>
+                                <Input
+                                    id="maxAttempts"
+                                    type="number"
+                                    min="1"
+                                    {...register("maxAttempts")}
+                                    className="mt-1"
+                                    placeholder={t("unlimitedPlaceholder")}
+                                />
+                            </div>
 
-                {/* Options */}
-                <div className="space-y-3">
-                    <div className="flex items-center gap-x-2">
-                        <Checkbox
-                            id="published"
-                            checked={watch("published")}
-                            onCheckedChange={(checked) => setValue("published", checked)}
-                        />
-                        <Label htmlFor="published" className="cursor-pointer">
-                            {t("published")}
-                        </Label>
+                            {/* Show Answers Policy */}
+                            <div>
+                                <Label htmlFor="showAnswersPolicy">{t("showAnswersPolicy")}</Label>
+                                <Select
+                                    defaultValue={watch("showAnswersPolicy")}
+                                    onValueChange={(value) => setValue("showAnswersPolicy", value)}
+                                >
+                                    <SelectTrigger className="mt-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="never">{t("never")}</SelectItem>
+                                        <SelectItem value="after_submit">{t("afterSubmit")}</SelectItem>
+                                        <SelectItem value="after_pass">{t("afterPass")}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Options */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-x-2">
+                                    <Checkbox
+                                        id="published"
+                                        checked={watch("published")}
+                                        onCheckedChange={(checked) => setValue("published", checked)}
+                                    />
+                                    <Label htmlFor="published" className="cursor-pointer">
+                                        {t("published")}
+                                    </Label>
+                                </div>
+
+                                <div className="flex items-center gap-x-2">
+                                    <Checkbox
+                                        id="required"
+                                        checked={watch("required")}
+                                        onCheckedChange={(checked) => setValue("required", checked)}
+                                    />
+                                    <Label htmlFor="required" className="cursor-pointer">
+                                        {t("requiredBlocksCompletion")}
+                                    </Label>
+                                </div>
+
+                                <div className="flex items-center gap-x-2">
+                                    <Checkbox
+                                        id="shuffleQuestions"
+                                        checked={watch("shuffleQuestions")}
+                                        onCheckedChange={(checked) => setValue("shuffleQuestions", checked)}
+                                    />
+                                    <Label htmlFor="shuffleQuestions" className="cursor-pointer">
+                                        {t("shuffleQuestions")}
+                                    </Label>
+                                </div>
+
+                                <div className="flex items-center gap-x-2">
+                                    <Checkbox
+                                        id="shuffleOptions"
+                                        checked={watch("shuffleOptions")}
+                                        onCheckedChange={(checked) => setValue("shuffleOptions", checked)}
+                                    />
+                                    <Label htmlFor="shuffleOptions" className="cursor-pointer">
+                                        {t("shuffleOptions")}
+                                    </Label>
+                                </div>
+                            </div>
+
+                            {/* Submit */}
+                            <div className="flex gap-2">
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? t("saving") : t("saveChanges")}
+                                </Button>
+                                <Link href={`/dashboard/courses/${courseId}/quizzes`}>
+                                    <Button type="button" variant="outline">{t("cancel")}</Button>
+                                </Link>
+                            </div>
+                        </form>
                     </div>
+                </TabsContent>
 
-                    <div className="flex items-center gap-x-2">
-                        <Checkbox
-                            id="required"
-                            checked={watch("required")}
-                            onCheckedChange={(checked) => setValue("required", checked)}
-                        />
-                        <Label htmlFor="required" className="cursor-pointer">
-                            {t("requiredBlocksCompletion")}
-                        </Label>
+                <TabsContent value="adaptive">
+                    <div className="max-w-4xl space-y-8">
+                        <AdaptiveConfigForm quiz={quiz} />
+                        <PoolAnalysis quizId={quiz.id} />
                     </div>
+                </TabsContent>
 
-                    <div className="flex items-center gap-x-2">
-                        <Checkbox
-                            id="shuffleQuestions"
-                            checked={watch("shuffleQuestions")}
-                            onCheckedChange={(checked) => setValue("shuffleQuestions", checked)}
-                        />
-                        <Label htmlFor="shuffleQuestions" className="cursor-pointer">
-                            {t("shuffleQuestions")}
-                        </Label>
+                <TabsContent value="analytics">
+                    <div className="max-w-5xl space-y-8">
+                        <AdaptiveAnalyticsDashboard quizId={quiz.id} />
                     </div>
-
-                    <div className="flex items-center gap-x-2">
-                        <Checkbox
-                            id="shuffleOptions"
-                            checked={watch("shuffleOptions")}
-                            onCheckedChange={(checked) => setValue("shuffleOptions", checked)}
-                        />
-                        <Label htmlFor="shuffleOptions" className="cursor-pointer">
-                            {t("shuffleOptions")}
-                        </Label>
-                    </div>
-                </div>
-
-                {/* Submit */}
-                <div className="flex gap-2">
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? t("saving") : t("saveChanges")}
-                    </Button>
-                    <Link href={`/dashboard/courses/${courseId}/quizzes`}>
-                        <Button type="button" variant="outline">{t("cancel")}</Button>
-                    </Link>
-                </div>
-            </form>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

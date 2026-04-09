@@ -59,6 +59,26 @@ const quizSchema = new Schema({
         enum: ["never", "after_submit", "after_pass"],
         default: "after_submit"
     },
+    adaptiveConfig: {
+        enabled: { type: Boolean, default: false },
+        precisionThreshold: { type: Number, default: 0.30, min: 0.1, max: 1.0 },
+        minQuestions: { type: Number, default: 5, min: 1 },
+        maxQuestions: { type: Number, default: 30, min: 5 },
+        contentBalancing: {
+            enabled: { type: Boolean, default: false },
+            moduleWeights: [{
+                moduleId: { type: Schema.Types.ObjectId, ref: "Module" },
+                weight: { type: Number, min: 0, max: 1 }
+            }]
+        },
+        initialTheta: { type: Number, default: 0.0 }
+    },
+    batConfig: {
+        enabled: { type: Boolean, default: false },
+        blockSize: { type: Number, default: 2, min: 2, max: 5 },
+        totalBlocks: { type: Number, default: 5, min: 3, max: 10 },
+        initialTheta: { type: Number, default: 0.0 }
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "User",

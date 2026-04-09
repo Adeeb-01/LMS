@@ -33,6 +33,7 @@ export function QuestionList({ quizId, questions: initialQuestions }) {
     multiple_choice_multiple: t("multipleChoice"),
     true_false: t("trueFalse"),
     short_text: t("shortText"),
+    oral: t("oral"),
   };
 
   const handleDelete = async (questionId) => {
@@ -172,9 +173,19 @@ export function QuestionList({ quizId, questions: initialQuestions }) {
                 <Badge variant="secondary" className="text-xs">
                   {question.points} {t("pts")}
                 </Badge>
+                {question.irt && (
+                  <div className="flex gap-1 ml-auto">
+                    <Badge variant="outline" title={t("discriminationHint")} className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                      a: {question.irt.a?.toFixed(2) ?? "1.00"}
+                    </Badge>
+                    <Badge variant="outline" title={t("difficultyHint")} className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                      b: {question.irt.b?.toFixed(2) ?? "0.00"}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
-              <p className="font-medium mb-2 line-clamp-2">{question.questionText}</p>
+              <p className="font-medium mb-2 line-clamp-2">{question.text}</p>
 
               {/* Options preview */}
               {question.options && question.options.length > 0 && (

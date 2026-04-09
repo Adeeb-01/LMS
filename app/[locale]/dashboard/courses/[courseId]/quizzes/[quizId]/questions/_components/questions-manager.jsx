@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { addQuestion, updateQuestion, deleteQuestion, reorderQuestions } from "@/app/actions/quizv2";
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, Database } from "lucide-react";
 import { QuestionFormDialog } from "./question-form-dialog";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -41,10 +41,17 @@ function QuestionItem({ question, onEdit, onDelete, onMoveUp, onMoveDown, canMov
                             <h4 className="font-medium" dir="auto">{question.text}</h4>
                             <Badge variant="outline">{question.type}</Badge>
                             <Badge variant="outline">{question.points} {t("pts")}</Badge>
+                            {question.generatedBy === 'gemini' && (
+                                <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-100">
+                                    <Database className="w-3 h-3 me-1" />
+                                    {t("aiGenerated")}
+                                </Badge>
+                            )}
                         </div>
                         <p className="text-sm text-slate-600">
-                            {t("optionsCount", { n: question.options.length })}
+                            {question.type !== 'oral' ? t("optionsCount", { n: question.options?.length || 0 }) : t("oralQuestion")}
                             {question.explanation && ` • ${t("hasExplanation")}`}
+                            {question.sourceChunkId && ` • Source: ${question.sourceChunkId}`}
                         </p>
                     </div>
                     <div className="flex gap-2">

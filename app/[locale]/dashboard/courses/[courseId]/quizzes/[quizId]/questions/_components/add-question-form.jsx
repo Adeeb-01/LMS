@@ -15,9 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { addQuestion } from "@/app/actions/quizzes";
+import { addQuestion } from "@/app/actions/quizv2";
 import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import { OralQuestionForm } from "@/components/questions/OralQuestionForm";
 
 export function AddQuestionForm({ quizId }) {
   const t = useTranslations("Quiz");
@@ -27,6 +29,7 @@ export function AddQuestionForm({ quizId }) {
   const [questionText, setQuestionText] = useState("");
   const [points, setPoints] = useState("1");
   const [explanation, setExplanation] = useState("");
+  const [referenceAnswer, setReferenceAnswer] = useState("");
   const [options, setOptions] = useState([
     { text: "", isCorrect: false },
     { text: "", isCorrect: false },
@@ -36,6 +39,7 @@ export function AddQuestionForm({ quizId }) {
     setQuestionText("");
     setPoints("1");
     setExplanation("");
+    setReferenceAnswer("");
     setOptions([
       { text: "", isCorrect: false },
       { text: "", isCorrect: false },
@@ -75,7 +79,7 @@ export function AddQuestionForm({ quizId }) {
     }
 
     // Validate options for MCQ types
-    if (questionType !== "short_text") {
+    if (questionType !== "short_text" && questionType !== "oral") {
       const validOptions = options.filter((opt) => opt.text.trim());
       if (validOptions.length < 2) {
         toast.error(t("minTwoOptions"));
@@ -88,16 +92,22 @@ export function AddQuestionForm({ quizId }) {
       }
     }
 
+    if (questionType === "oral" && !referenceAnswer.trim()) {
+      toast.error(t("referenceAnswerRequired"));
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const questionData = {
-        questionText: questionText.trim(),
-        questionType,
+        text: questionText.trim(), // Use 'text' as per Zod schema
+        type: questionType === "multiple_choice_single" ? "multiple_choice" : questionType,
         points: parseInt(points) || 1,
         explanation: explanation.trim(),
+        referenceAnswer: questionType === "oral" ? referenceAnswer.trim() : undefined,
         options:
-          questionType === "short_text"
+          questionType === "short_text" || questionType === "oral"
             ? []
             : questionType === "true_false"
             ? [
@@ -145,6 +155,7 @@ export function AddQuestionForm({ quizId }) {
               <SelectItem value="multiple_choice_multiple">{t("multipleChoice")}</SelectItem>
               <SelectItem value="true_false">{t("trueFalse")}</SelectItem>
               <SelectItem value="short_text">{t("shortTextManualGrading")}</SelectItem>
+              <SelectItem value="oral">{t("oral")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -260,6 +271,13 @@ export function AddQuestionForm({ quizId }) {
           <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
             {t("shortTextNote")}
           </div>
+        )}
+
+        {questionType === "oral" && (
+          <OralQuestionForm
+            referenceAnswer={referenceAnswer}
+            onChange={setReferenceAnswer}
+          />
         )}
 
         <div>

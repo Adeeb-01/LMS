@@ -8,7 +8,7 @@ import { getLoggedInUser } from "@/lib/loggedin-user";
 import { assertInstructorOwnsCourse, isAdmin } from "@/lib/authorization";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import { getQuizWithQuestions, getInProgressAttempt } from "@/queries/quizv2";
-import { quizSchema, questionSchema } from "@/lib/validations";
+import { quizSchema, questionSchema, batConfigSchema } from "@/lib/validations";
 import mongoose from "mongoose";
 import { updateQuizCompletionInReport } from "./quizProgressv2";
 
@@ -143,6 +143,8 @@ export async function updateQuiz(quizId, data) {
         if (p.shuffleQuestions !== undefined) quiz.shuffleQuestions = p.shuffleQuestions;
         if (p.shuffleOptions !== undefined) quiz.shuffleOptions = p.shuffleOptions;
         if (p.showAnswersPolicy !== undefined) quiz.showAnswersPolicy = p.showAnswersPolicy;
+        if (p.adaptiveConfig !== undefined) quiz.adaptiveConfig = p.adaptiveConfig;
+        if (p.batConfig !== undefined) quiz.batConfig = p.batConfig;
         await quiz.save();
         return { ok: true };
     } catch (error) {
@@ -205,6 +207,26 @@ export async function publishQuiz(quizId, published) {
             await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
         }
         
+        // Add publish-time validation for adaptive quizzes (T037)
+        if (published && quiz.adaptiveConfig?.enabled) {
+            const poolSize = await Question.countDocuments({ quizId: new mongoose.Types.ObjectId(quizId) });
+            const maxQs = quiz.adaptiveConfig.maxQuestions || 30;
+            if (poolSize < 3 * maxQs) {
+                // We warn but still allow publish if they insist
+                // For now, let's just return a warning if we can or just proceed
+                console.warn(`[PUBLISH_QUIZ] Small pool for adaptive quiz ${quizId}: ${poolSize} < 3*${maxQs}`);
+            }
+            
+            // Check for questions without IRT parameters
+            const questionsWithoutIRT = await Question.countDocuments({
+                quizId: new mongoose.Types.ObjectId(quizId),
+                $or: [{ irt: null }, { "irt.a": { $exists: false } }]
+            });
+            if (questionsWithoutIRT > 0) {
+                return { ok: false, error: `${questionsWithoutIRT} questions are missing IRT parameters. Adaptive quizzes require all questions to be calibrated.` };
+            }
+        }
+
         quiz.published = published;
         await quiz.save();
         
@@ -247,6 +269,7 @@ export async function addQuestion(quizId, questionData) {
             text: p.text,
             options: p.options,
             correctOptionIds: p.correctOptionIds ?? [],
+            referenceAnswer: p.referenceAnswer ?? "",
             explanation: p.explanation ?? "",
             points: p.points ?? 1,
             order
@@ -290,6 +313,17 @@ export async function updateQuestion(questionId, questionData) {
         if (p.correctOptionIds !== undefined) question.correctOptionIds = p.correctOptionIds;
         if (p.explanation !== undefined) question.explanation = p.explanation;
         if (p.points !== undefined) question.points = p.points;
+        if (p.referenceAnswer !== undefined) question.referenceAnswer = p.referenceAnswer;
+
+        // Reset IRT parameters if question text or options are modified
+        if (p.text !== undefined || p.options !== undefined || p.referenceAnswer !== undefined) {
+            question.irt = {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0
+            };
+        }
+
         await question.save();
         return { ok: true };
     } catch (error) {
@@ -490,10 +524,25 @@ export async function autosaveAttempt(attemptId, answers) {
         }
         
         // Convert answers to proper format
-        const answerArray = Object.entries(answers).map(([questionId, selectedOptionIds]) => ({
-            questionId: new mongoose.Types.ObjectId(questionId),
-            selectedOptionIds: Array.isArray(selectedOptionIds) ? selectedOptionIds : [selectedOptionIds]
-        }));
+        const answerArray = Object.entries(answers).map(([questionId, value]) => {
+            const answerObj = {
+                questionId: new mongoose.Types.ObjectId(questionId),
+            };
+
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // Handle oral question answer object
+                answerObj.audioUrl = value.audioUrl || null;
+                answerObj.skippedDueToMic = !!value.skippedDueToMic;
+                if (answerObj.audioUrl) {
+                    answerObj.gradingStatus = 'pending';
+                }
+            } else {
+                // Handle multiple choice/text answers
+                answerObj.selectedOptionIds = Array.isArray(value) ? value : (value ? [value] : []);
+            }
+
+            return answerObj;
+        });
         
         attempt.answers = answerArray;
         await attempt.save();
@@ -556,22 +605,33 @@ export async function submitAttempt(attemptId, answers) {
         
         // Convert answers to proper format and validate
         const answerArray = [];
-        for (const [questionId, selectedOptionIds] of Object.entries(answers)) {
+        for (const [questionId, value] of Object.entries(answers)) {
             const qIdStr = questionId.toString();
             if (!validQuestionIds.has(qIdStr)) {
                 console.warn(`[SUBMIT_ATTEMPT] Rejecting answer for invalid questionId: ${qIdStr}`);
                 continue; // Skip invalid question IDs
             }
             
-            // Ensure selectedOptionIds is an array
-            const optionIds = Array.isArray(selectedOptionIds) 
-                ? selectedOptionIds.filter(id => id != null && id !== "")
-                : (selectedOptionIds != null && selectedOptionIds !== "" ? [selectedOptionIds] : []);
-            
-            answerArray.push({
+            const answerObj = {
                 questionId: new mongoose.Types.ObjectId(questionId),
-                selectedOptionIds: optionIds
-            });
+            };
+
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // Handle oral question answer object
+                answerObj.audioUrl = value.audioUrl || null;
+                answerObj.skippedDueToMic = !!value.skippedDueToMic;
+                if (answerObj.audioUrl) {
+                    answerObj.gradingStatus = 'pending';
+                }
+            } else {
+                // Handle multiple choice/text answers
+                const optionIds = Array.isArray(value) 
+                    ? value.filter(id => id != null && id !== "")
+                    : (value != null && value !== "" ? [value] : []);
+                answerObj.selectedOptionIds = optionIds;
+            }
+            
+            answerArray.push(answerObj);
         }
         
         // Grade attempt
@@ -594,6 +654,21 @@ export async function submitAttempt(attemptId, answers) {
                 quiz._id?.toString() || attempt.quizId?.toString(),
                 quiz.lessonId?.toString() || null
             );
+        }
+
+        // Trigger async evaluation for oral questions
+        const oralAnswers = attempt.answers.filter(a => a.gradingStatus === 'pending');
+        if (oralAnswers.length > 0) {
+            // Internal call to evaluate-oral API (or direct function call)
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+            for (const answer of oralAnswers) {
+                // In a Server Action, we can just call the async function or the API
+                fetch(`${baseUrl}/api/evaluate-oral`, {
+                    method: 'POST',
+                    body: JSON.stringify({ attemptId: attempt._id.toString(), answerId: answer._id.toString() }),
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(err => console.error("[ORAL_EVAL_TRIGGER_FAILED]", err));
+            }
         }
         
         return { ok: true, attempt: JSON.parse(JSON.stringify(attempt)) };
@@ -661,6 +736,230 @@ export async function getAttemptResult(attemptId) {
 }
 
 /**
+ * Update adaptive testing configuration for a quiz (US3)
+ */
+export async function updateQuizAdaptiveConfig(quizId, adaptiveConfig) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return { ok: false, error: "Quiz not found" };
+        }
+
+        // Verify ownership
+        if (!isAdmin(user)) {
+            await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
+        }
+
+        // Validate config using the sub-schema from quizSchema
+        const adaptiveConfigSchema = quizSchema.shape.adaptiveConfig;
+        const parsed = adaptiveConfigSchema.safeParse(adaptiveConfig);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid adaptive configuration: " + parsed.error.errors[0].message };
+        }
+
+        const config = parsed.data;
+        quiz.adaptiveConfig = config;
+
+        // Perform readiness checks (non-blocking warnings)
+        const warnings = [];
+        if (config.enabled) {
+            const poolSize = await Question.countDocuments({ quizId: new mongoose.Types.ObjectId(quizId) });
+            if (poolSize < 3 * (config.maxQuestions || 30)) {
+                warnings.push({ key: "insufficientPool" });
+            }
+
+            const questionsWithIRT = await Question.countDocuments({ 
+                quizId: new mongoose.Types.ObjectId(quizId),
+                irt: { $ne: null }
+            });
+            if (questionsWithIRT < poolSize) {
+                warnings.push({ key: "missingIRT", count: poolSize - questionsWithIRT });
+            }
+        }
+
+        await quiz.save();
+        return {
+            ok: true,
+            quizId: quiz._id.toString(),
+            adaptiveConfig: JSON.parse(JSON.stringify(quiz.adaptiveConfig)),
+            warnings,
+        };
+    } catch (error) {
+        console.error("[UPDATE_QUIZ_ADAPTIVE_CONFIG] Error:", error);
+        return { ok: false, error: error.message || "Failed to update adaptive config" };
+    }
+}
+
+/**
+ * Update BAT testing configuration for a quiz (US5)
+ */
+export async function updateQuizBatConfig(quizId, batConfig) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return { ok: false, error: "Quiz not found" };
+        }
+
+        // Verify ownership
+        if (!isAdmin(user)) {
+            await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
+        }
+
+        const parsed = batConfigSchema.safeParse(batConfig);
+        if (!parsed.success) {
+            return { ok: false, error: "Invalid BAT configuration: " + parsed.error.errors[0].message };
+        }
+
+        const config = parsed.data;
+        quiz.batConfig = config;
+
+        // Mutual exclusion: if BAT is enabled, disable standard adaptive
+        if (config.enabled) {
+            quiz.adaptiveConfig.enabled = false;
+        }
+
+        // Perform readiness checks (non-blocking warnings)
+        const warnings = [];
+        if (config.enabled) {
+            const { validateBatPool } = await import("./bat-quiz");
+            const validation = await validateBatPool(quizId);
+            if (!validation.valid) {
+                warnings.push({ 
+                    key: "insufficientBatPool", 
+                    counts: validation.counts,
+                    minRequired: validation.minRequired 
+                });
+            }
+        }
+
+        await quiz.save();
+        return {
+            ok: true,
+            quizId: quiz._id.toString(),
+            batConfig: JSON.parse(JSON.stringify(quiz.batConfig)),
+            warnings,
+        };
+    } catch (error) {
+        console.error("[UPDATE_QUIZ_BAT_CONFIG] Error:", error);
+        return { ok: false, error: error.message || "Failed to update BAT config" };
+    }
+}
+
+/**
+ * Analyze question pool for adaptive testing readiness (US3)
+ */
+export async function getQuizPoolAnalysis(quizId) {
+    await dbConnect();
+    try {
+        const user = await getLoggedInUser();
+        if (!user) {
+            return { ok: false, error: "Unauthorized" };
+        }
+
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return { ok: false, error: "Quiz not found" };
+        }
+
+        // Verify ownership
+        if (!isAdmin(user)) {
+            await assertInstructorOwnsCourse(quiz.courseId.toString(), user.id, { allowAdmin: false });
+        }
+
+        const questions = await Question.find({ quizId: new mongoose.Types.ObjectId(quizId) }).lean();
+        
+        const totalQuestions = questions.length;
+        const questionsWithIRT = questions.filter(q => q.irt).length;
+        const questionsWithoutIRT = totalQuestions - questionsWithIRT;
+
+        const difficultyDistribution = {
+            veryEasy: 0,    // b < -2
+            easy: 0,        // -2 ≤ b < -1
+            medium: 0,      // -1 ≤ b < 1
+            hard: 0,        // 1 ≤ b < 2
+            veryHard: 0     // b ≥ 2
+        };
+
+        const discriminationQuality = {
+            excellent: 0,   // a ≥ 1.5
+            good: 0,        // 1.0 ≤ a < 1.5
+            acceptable: 0,  // 0.5 ≤ a < 1.0
+            poor: 0         // a < 0.5
+        };
+
+        questions.forEach(q => {
+            if (q.irt) {
+                const { a, b } = q.irt;
+                
+                // Difficulty
+                if (b < -2) difficultyDistribution.veryEasy++;
+                else if (b < -1) difficultyDistribution.easy++;
+                else if (b < 1) difficultyDistribution.medium++;
+                else if (b < 2) difficultyDistribution.hard++;
+                else difficultyDistribution.veryHard++;
+
+                // Discrimination
+                if (a >= 1.5) discriminationQuality.excellent++;
+                else if (a >= 1.0) discriminationQuality.good++;
+                else if (a >= 0.5) discriminationQuality.acceptable++;
+                else discriminationQuality.poor++;
+            }
+        });
+
+        const recommendations = [];
+        if (totalQuestions < 30) {
+            recommendations.push({ key: "increasePool" });
+        }
+        if (questionsWithoutIRT > 0) {
+            recommendations.push({ key: "calibrateQuestions" });
+        }
+        if (discriminationQuality.poor > 0) {
+            recommendations.push({ key: "lowDiscrimination" });
+        }
+        
+        // Check for difficulty gaps
+        const gaps = [];
+        if (difficultyDistribution.veryEasy === 0) gaps.push("veryEasy");
+        if (difficultyDistribution.veryHard === 0) gaps.push("veryHard");
+        if (gaps.length > 0) {
+            recommendations.push({ key: "difficultyGaps", gaps });
+        }
+
+        const readyForAdaptive = totalQuestions >= 15 && 
+                                questionsWithoutIRT === 0 && 
+                                discriminationQuality.poor === 0;
+
+        return {
+            ok: true,
+            data: {
+                totalQuestions,
+                questionsWithIRT,
+                questionsWithoutIRT,
+                difficultyDistribution,
+                discriminationQuality,
+                recommendations,
+                readyForAdaptive
+            }
+        };
+    } catch (error) {
+        console.error("[GET_QUIZ_POOL_ANALYSIS] Error:", error);
+        return { ok: false, error: error.message || "Failed to analyze question pool" };
+    }
+}
+
+/**
  * Get quiz result with review data (US2)
  */
 export async function getQuizResultWithReview(attemptId) {
@@ -710,6 +1009,7 @@ export async function getQuizResultWithReview(attemptId) {
             },
             quiz: {
                 _id: quiz._id.toString(),
+                courseId: quiz.courseId.toString(),
                 title: quiz.title,
                 passPercent: quiz.passPercent,
                 showAnswersPolicy: quiz.showAnswersPolicy || "after_submit"
@@ -744,8 +1044,20 @@ export async function getQuizResultWithReview(attemptId) {
             
             // Create a map of student answers for quick lookup
             const studentAnswerMap = {};
+            const oralAnswerMap = {};
             (attempt.answers || []).forEach(a => {
-                studentAnswerMap[a.questionId.toString()] = a.selectedOptionIds || [];
+                const qId = a.questionId.toString();
+                studentAnswerMap[qId] = a.selectedOptionIds || [];
+                if (a.audioUrl || a.skippedDueToMic || a.gradingStatus) {
+                    oralAnswerMap[qId] = {
+                        answerId: a._id?.toString() || null,
+                        audioUrl: a.audioUrl || null,
+                        transcribedText: a.transcribedText || "",
+                        gradingStatus: a.gradingStatus || null,
+                        score: a.score || 0,
+                        skippedDueToMic: a.skippedDueToMic || false
+                    };
+                }
             });
 
             result.review = {
@@ -753,15 +1065,23 @@ export async function getQuizResultWithReview(attemptId) {
                     const studentAnswer = studentAnswerMap[q._id.toString()] || [];
                     const grade = gradeQuestion(q, studentAnswer);
                     
+                    const isOral = q.type === 'oral';
+                    const oralData = oralAnswerMap[q._id.toString()] || null;
+
                     const questionReview = {
                         _id: q._id.toString(),
                         text: q.text,
                         type: q.type,
-                        options: q.options.map(o => ({ id: o.id, text: o.text })),
+                        options: isOral ? [] : q.options.map(o => ({ id: o.id, text: o.text })),
                         points: q.points,
                         studentAnswer,
-                        isCorrect: grade.correct
+                        isCorrect: isOral ? (oralData?.gradingStatus === 'completed' && oralData?.score > 0) : grade.correct,
+                        sourceTimestamp: q.sourceTimestamp || null
                     };
+
+                    if (isOral && oralData) {
+                        questionReview.oral = oralData;
+                    }
 
                     if (includeCorrectAnswers) {
                         questionReview.correctAnswer = q.correctOptionIds || [];

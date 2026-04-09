@@ -7,19 +7,41 @@ A modern Learning Management System built with Next.js 15, supporting course cre
 - **Role-based Access Control**: Admin, Instructor, and Student roles with appropriate permissions
 - **Course Management**: Create courses with modules, lessons, and video content
 - **Quiz System**: Create quizzes for courses and lessons with multiple question types and auto-grading
+- **DOCX Text Extraction**: Upload Word documents (.docx) for lessons and automatically extract structured text.
+- **Semantic Search**: Natural language search across course materials. Students can ask questions and receive relevant content segments from indexed lecture documents, ranked by similarity.
+- **Text-Video Sync**: AI-powered pipeline that synchronizes Word documents with lecture videos. Enables students to click any paragraph to jump to that moment in the video and automatically propagates timestamps to generated quiz questions.
+- **Adaptive Testing (IRT)**: Intelligent quiz system using Item Response Theory (3PL model). Dynamically selects questions based on student ability (θ), estimates ability using EAP estimation after each response, and terminates efficiently when measurement precision is achieved. Includes instructor analytics for ability distribution and question drift detection.
+- **Block-Based Adaptive Testing (BAT)**: Advanced adaptive mode that groups questions into difficulty-matched blocks of 2. θ is recalculated after each block submission rather than per-question, reducing server load and providing a more cohesive student experience. Includes fixed-length termination (5 blocks/10 questions) and diagnostic concept gap analysis for missed questions.
 - **Enrollment & Payments**: MockPay integration for simulated payments (demo/testing)
 - **Progress Tracking**: Monitor student progress through courses and lessons
 - **Certificates**: Generate PDF certificates upon course completion
 - **Dashboards**: Comprehensive admin and instructor dashboards with analytics
+- **AI Content Pipeline**: Unified orchestration that extracts text from DOCX, synchronizes it with video timestamps, generates semantic embeddings in ChromaDB, and automatically creates both MCQs (with IRT parameters) and oral questions for any lesson with a single click. Includes a real-time progress dashboard with retry capability and error handling.
+
+## AI Content Pipeline Usage
+
+Instructors can trigger the automated content pipeline from the lesson management dashboard:
+
+1. **Upload Materials**: Add a video file and a `.docx` lecture document to a lesson.
+2. **Launch Pipeline**: Click "Trigger AI Content Pipeline" in the lesson's sidebar.
+3. **Monitor Progress**: Watch real-time stage updates:
+   - **Extraction**: DOCX to structured JSON
+   - **Alignment**: Text-to-video timestamp synchronization
+   - **Indexing**: Vector embedding generation for semantic search
+   - **Generation**: Parallel creation of MCQs and oral questions
+4. **Review & Publish**: Review generated questions, edit as needed, and add them to your quiz.
+
+Note: Requires `GEMINI_API_KEY` in environment variables.
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15 (App Router), React 18, Tailwind CSS, shadcn/ui
 - **Backend**: Next.js API Routes, Server Actions
-- **Database**: MongoDB with Mongoose
+- **Database**: MongoDB with Mongoose, ChromaDB (Vector database)
 - **Authentication**: NextAuth v5
 - **Validation**: Zod, React Hook Form
-- **Other**: PDF generation, Video player, Rich text editor, Email service (Resend)
+- **AI/ML**: Google Gemini (Semantic Embeddings), OpenAI Whisper (via Transformers.js), fuzzy string matching for timestamp synchronization, mathjs (numerical integration for IRT)
+- **Other**: mammoth (DOCX extraction), fluent-ffmpeg (audio processing), PDF generation, Video player, Rich text editor, Email service (Resend)
 
 ## Quick Start
 
@@ -32,10 +54,21 @@ npm install
 
 2. Create a `.env` file:
 ```env
+# Database Connections
 MONGODB_CONNECTION_STRING=mongodb://localhost:27017/lms
+CHROMA_HOST=http://localhost:8000           # Optional: ChromaDB for semantic search
+CHROMA_COLLECTION=lms_embeddings            # Optional: Default collection name
+DB_HEALTH_INTERVAL_MS=30000                 # Optional: Health check cache duration
+
+# AI Services
+GEMINI_API_KEY=your-gemini-api-key-here     # Required for Semantic Search
+
+# Authentication
 NEXTAUTH_SECRET=your-secret-key-here
 NEXTAUTH_URL=http://localhost:3000
-RESEND_API_KEY=your-resend-api-key  # Optional
+
+# Services
+RESEND_API_KEY=your-resend-api-key           # Optional: Email service
 ```
 
 3. Run the development server:
