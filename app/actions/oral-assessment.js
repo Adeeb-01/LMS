@@ -112,6 +112,17 @@ export async function submitOralResponse(data) {
             attemptNumber
         });
 
+        try {
+            const { enqueueRemediationAggregation } = await import("@/service/remediation-queue");
+            enqueueRemediationAggregation({
+                courseId,
+                studentId: user.id,
+                resolution: { assessmentType: "oral", assessmentId: response._id },
+            });
+        } catch (e) {
+            console.error("[ORAL_REMEDIATION_ENQUEUE]", e);
+        }
+
         return {
             ok: true,
             result: {

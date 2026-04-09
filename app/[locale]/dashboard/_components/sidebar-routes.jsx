@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart } from "lucide-react";
+import { BookMarked } from "lucide-react";
 import { BookOpen } from "lucide-react";
 import { SidebarItem } from "./sidebar-item";
 import { useTranslations } from "next-intl";
@@ -8,6 +9,7 @@ import { useTranslations } from "next-intl";
 const ROUTES = [
   { icon: BarChart, labelKey: "analytics", href: "/dashboard" },
   { icon: BookOpen, labelKey: "courses", href: "/dashboard/courses" },
+  { icon: BookMarked, labelKey: "remediation", href: "/dashboard/remediation" },
   { icon: BookOpen, labelKey: "addCourse", href: "/dashboard/courses/add" },
   // {
   //   icon: Radio,
