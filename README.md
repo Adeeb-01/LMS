@@ -17,6 +17,7 @@ A modern Learning Management System built with Next.js 15, supporting course cre
 - **Certificates**: Generate PDF certificates upon course completion
 - **Dashboards**: Comprehensive admin and instructor dashboards with analytics
 - **AI Content Pipeline**: Unified orchestration that extracts text from DOCX, synchronizes it with video timestamps, generates semantic embeddings in ChromaDB, and automatically creates both MCQs (with IRT parameters) and oral questions for any lesson with a single click. Includes a real-time progress dashboard with retry capability and error handling.
+- **AI-Driven Remediation Dashboard**: Personalized weakness tracking that aggregates conceptual gaps from BAT assessments and oral recitations into a unified student profile. Features priority scoring (frequency, recency, source diversity), deep-link video playback at exact timestamps where concepts are explained, automatic resolution tracking when students pass subsequent assessments, and anonymized class-level analytics for instructors.
 
 ## AI Content Pipeline Usage
 
@@ -32,6 +33,19 @@ Instructors can trigger the automated content pipeline from the lesson managemen
 4. **Review & Publish**: Review generated questions, edit as needed, and add them to your quiz.
 
 Note: Requires `GEMINI_API_KEY` in environment variables.
+
+## AI Remediation Dashboard
+
+Students can access their personalized remediation dashboard to review concepts they struggled with:
+
+1. **Access Dashboard**: Navigate to Dashboard → Remediation and select a course.
+2. **View Weaknesses**: See a prioritized list of conceptual gaps aggregated from BAT and oral assessments.
+3. **Review Concepts**: Click "Review Concept" to jump directly to the video timestamp where that concept is explained.
+4. **Track Progress**: Weaknesses are automatically marked as "resolved" when you pass a subsequent assessment covering that concept.
+
+**For Instructors**: View anonymized class-level weakness patterns on the course management page to identify concepts that need additional attention across all students.
+
+Note: Requires `GEMINI_API_KEY` for video timestamp resolution via semantic search.
 
 ## Tech Stack
 
@@ -69,6 +83,7 @@ NEXTAUTH_URL=http://localhost:3000
 
 # Services
 RESEND_API_KEY=your-resend-api-key           # Optional: Email service
+REMEDIATION_AGGREGATE_SECRET=your-secret     # Optional: Internal API auth for remediation jobs
 ```
 
 3. Run the development server:
@@ -85,16 +100,21 @@ The system uses **MockPay**, a virtual payment system for demonstration and test
 ## Project Structure
 
 ```
-app/          # Next.js pages and routes
-  ├── (main)/    # Public pages
-  ├── admin/     # Admin dashboard
-  ├── dashboard/ # Instructor dashboard
-  ├── actions/   # Server actions
-  └── api/       # API routes
-components/   # React components
-lib/          # Utilities and helpers
-model/        # Mongoose models
-queries/      # Database queries
+app/                    # Next.js pages and routes
+  ├── (main)/           # Public pages
+  ├── admin/            # Admin dashboard
+  ├── dashboard/        # Instructor/Student dashboard
+  │   ├── courses/      # Course management
+  │   └── remediation/  # AI remediation dashboard
+  ├── actions/          # Server actions
+  └── api/              # API routes
+components/             # React components
+lib/                    # Utilities and helpers
+  ├── irt/              # Adaptive testing algorithms
+  └── remediation/      # Weakness aggregation & priority scoring
+model/                  # Mongoose models
+service/                # Background jobs & external services
+queries/                # Database queries
 ```
 
 ## License
