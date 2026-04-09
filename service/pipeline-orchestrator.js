@@ -9,6 +9,7 @@ import { triggerOralGeneration } from "@/service/oral-generation-queue";
 import { Quiz } from "@/model/quizv2-model";
 
 const MAX_CONCURRENT_PIPELINES = 5;
+const STALE_PIPELINE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 export class PipelineOrchestrator {
   /**
@@ -19,6 +20,23 @@ export class PipelineOrchestrator {
    */
   async startPipeline(lessonId, userId, initialStage = null) {
     await dbConnect();
+
+    // Auto-cleanup stale pipelines (stuck for more than 10 minutes)
+    const staleThreshold = new Date(Date.now() - STALE_PIPELINE_TIMEOUT_MS);
+    const staleResult = await PipelineJob.updateMany(
+      { 
+        status: { $in: ['extracting', 'aligning', 'indexing', 'generating', 'pending'] },
+        updatedAt: { $lt: staleThreshold }
+      },
+      { 
+        $set: { status: 'failed', completedAt: new Date() },
+        $push: { 'stages.extraction.errorMessage': 'Auto-cancelled: Pipeline timed out' }
+      }
+    );
+    
+    if (staleResult.modifiedCount > 0) {
+      console.warn(`[Pipeline] Auto-cancelled ${staleResult.modifiedCount} stale pipelines`);
+    }
 
     // 1. Concurrency control (T034)
     const activePipelines = await PipelineJob.countDocuments({ 
@@ -95,7 +113,7 @@ export class PipelineOrchestrator {
     } else {
       // Update stage startedAt
       const stageName = this.mapStageToKey(stage);
-      if (stageName) {
+      if (stageName && pipeline.stages && pipeline.stages[stageName]) {
         pipeline.stages[stageName].status = 'processing';
         pipeline.stages[stageName].startedAt = new Date();
       }
@@ -198,7 +216,20 @@ export class PipelineOrchestrator {
     const quiz = await Quiz.findOne({ lessonId: pipeline.lessonId });
     
     if (!doc) throw new Error('Document not found for generation');
-    if (!quiz) throw new Error('Quiz not found for generation. Please create a quiz for this lesson first.');
+    
+    // If no quiz exists, skip MCQ generation but allow pipeline to complete
+    if (!quiz) {
+      console.warn(`[Pipeline] No quiz found for lesson ${pipeline.lessonId}. Skipping question generation.`);
+      pipeline.stages.mcqGeneration.status = 'skipped';
+      pipeline.stages.mcqGeneration.errorMessage = 'No quiz configured for this lesson';
+      pipeline.stages.oralGeneration.status = 'skipped';
+      pipeline.stages.oralGeneration.errorMessage = 'No quiz configured for this lesson';
+      await pipeline.save();
+      
+      // Complete the pipeline as indexing is done
+      await this.transitionToStage(pipeline._id, 'completed');
+      return;
+    }
 
     // T033: Add parallel MCQ + Oral generation trigger
     const mcqData = {

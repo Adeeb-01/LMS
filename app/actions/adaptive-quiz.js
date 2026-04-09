@@ -66,10 +66,7 @@ export async function startAdaptiveAttempt(quizId, deviceId) {
     };
   }
 
-  // Create new attempt
-  const pool = await Question.find({ _id: { $in: quiz.lessonId ? [] : [] } }); // Placeholder: logic to get question pool
-  // Real pool logic: find questions by quizId or course/module context if applicable
-  // For now, let's assume questions are linked to the quiz via some mechanism (e.g., Question.find({ quizId }))
+  // Create new attempt - fetch question pool for this quiz
   const questionPool = await Question.find({ quizId: quiz._id }).lean();
   if (questionPool.length === 0) throw new Error("Question pool is empty");
 
@@ -148,26 +145,19 @@ export async function submitAdaptiveAnswer(attemptId, questionId, selectedOption
     }
   });
 
-  // Update IRT ability estimate
-  const responses = attempt.answers.map(ans => {
-    // We need the IRT params of all answered questions
-    // This is a bit inefficient, should probably store params in answer schema?
-    // For now, let's fetch them or assume they are available if we keep pool in memory
-    // In a real server action, we'll need to fetch them.
-    return {
-      correct: ans.score > 0,
-      params: question.irt // FIXME: Fetch all answered questions params
-    };
-  });
-  
-  // Real implementation needs all previous questions params too
+  // Update IRT ability estimate - fetch all answered questions' IRT params
   const answeredQuestionIds = attempt.answers.map(a => a.questionId);
   const answeredQuestions = await Question.find({ _id: { $in: answeredQuestionIds } }).lean();
+  
   const fullResponses = attempt.answers.map(ans => {
     const q = answeredQuestions.find(aq => aq._id.toString() === ans.questionId.toString());
+    if (!q) {
+      console.error(`[ADAPTIVE_QUIZ] Question ${ans.questionId} not found in pool`);
+      return { correct: ans.score > 0, params: { a: 1, b: 0, c: 0 } };
+    }
     return {
       correct: ans.score > 0,
-      params: q.irt
+      params: q.irt || { a: 1, b: 0, c: 0 }
     };
   });
 

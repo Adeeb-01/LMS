@@ -379,6 +379,17 @@ export async function submitBatBlock(attemptId, answers, sessionId) {
 
       await attempt.save();
 
+      try {
+        const { enqueueRemediationAggregation } = await import("@/service/remediation-queue");
+        enqueueRemediationAggregation({
+          courseId: quiz.courseId.toString(),
+          studentId: user.id,
+          resolution: { assessmentType: "bat", assessmentId: attempt._id },
+        });
+      } catch (e) {
+        console.error("[BAT_REMEDIATION_ENQUEUE]", e);
+      }
+
       return {
         success: true,
         data: {

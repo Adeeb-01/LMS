@@ -20,7 +20,7 @@ export async function triggerPipeline(lessonId) {
   try {
     const user = await getLoggedInUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: t("error_unauthorized") || "Unauthorized" };
     }
 
     // 1. Validate inputs (T008)
@@ -32,7 +32,7 @@ export async function triggerPipeline(lessonId) {
     // 2. Fetch lesson and check authorization (T039)
     const lesson = await Lesson.findById(lessonId).lean();
     if (!lesson) {
-      return { success: false, error: "Lesson not found" };
+      return { success: false, error: t("error_lesson_not_found") || "Lesson not found" };
     }
 
     const { assertInstructorOwnsCourse } = await import("@/lib/authorization");
@@ -48,7 +48,7 @@ export async function triggerPipeline(lessonId) {
     }
 
     if (!courseId) {
-      return { success: false, error: "Course ID not found for this lesson" };
+      return { success: false, error: t("error_course_not_found") || "Course ID not found for this lesson" };
     }
 
     await assertInstructorOwnsCourse(courseId, user.id, user);
@@ -65,7 +65,7 @@ export async function triggerPipeline(lessonId) {
     console.error("Trigger Pipeline Error:", error);
     return { 
       success: false, 
-      error: error.message || "Something went wrong" 
+      error: error.message || t("error_generic") || "Something went wrong" 
     };
   }
 }
@@ -82,7 +82,7 @@ export async function retryPipelineStage(pipelineJobId, stage) {
   try {
     const user = await getLoggedInUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: t("error_unauthorized") || "Unauthorized" };
     }
 
     // 1. Validate inputs (T009)
@@ -94,14 +94,13 @@ export async function retryPipelineStage(pipelineJobId, stage) {
     // 2. Fetch pipeline and check authorization (T039)
     const pipeline = await PipelineJob.findById(pipelineJobId).lean();
     if (!pipeline) {
-      return { success: false, error: "Pipeline job not found" };
+      return { success: false, error: t("error_pipeline_not_found") || "Pipeline job not found" };
     }
 
     const { assertInstructorOwnsCourse } = await import("@/lib/authorization");
     await assertInstructorOwnsCourse(pipeline.courseId, user.id, user);
 
     // 3. Retry the stage
-    // For now, retry by transitioning back to the stage
     await pipelineOrchestrator.transitionToStage(pipelineJobId, stage);
 
     return { success: true };
@@ -110,7 +109,7 @@ export async function retryPipelineStage(pipelineJobId, stage) {
     console.error("Retry Pipeline Stage Error:", error);
     return { 
       success: false, 
-      error: error.message || "Something went wrong" 
+      error: error.message || t("error_generic") || "Something went wrong" 
     };
   }
 }
@@ -126,7 +125,7 @@ export async function getPipelineStatus(lessonId) {
   try {
     const user = await getLoggedInUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: t("error_unauthorized") || "Unauthorized" };
     }
 
     // Fetch the latest pipeline for this lesson
@@ -135,14 +134,14 @@ export async function getPipelineStatus(lessonId) {
       .lean();
 
     if (!pipeline) {
-      return { success: false, error: "Pipeline job not found" };
+      return { success: false, error: t("error_pipeline_not_found") || "Pipeline job not found" };
     }
 
     // Authorization check
     const { verifyInstructorOwnsCourse } = await import("@/lib/authorization");
     const isOwner = await verifyInstructorOwnsCourse(pipeline.courseId, user.id, user);
     if (!isOwner) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: t("error_unauthorized") || "Unauthorized" };
     }
 
     return { 
@@ -154,7 +153,7 @@ export async function getPipelineStatus(lessonId) {
     console.error("Get Pipeline Status Error:", error);
     return { 
       success: false, 
-      error: error.message 
+      error: error.message || t("error_generic") || "Something went wrong"
     };
   }
 }

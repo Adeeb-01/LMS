@@ -23,6 +23,9 @@ import { CourseMediaSection } from "./_components/course-media-section";
 import { CoursePricingSection } from "./_components/course-pricing-section";
 import { CourseStatusSection } from "./_components/course-status-section";
 import CourseIndexingSummary from "./_components/course-indexing-summary";
+import { Suspense } from "react";
+import { ClassWeaknessAnalytics } from "./_components/class-weakness-analytics";
+import { ClassWeaknessAnalyticsSkeleton } from "./_components/class-weakness-analytics-skeleton";
 import { PublishBadge } from "@/components/ui/publish-badge";
 import { validatePublishRequirementsAction } from "@/app/actions/course";
 import { PublishChecklist } from "./_components/publish-checklist";
@@ -114,6 +117,10 @@ const EditCourse = async ({ params }) => {
         <div className="mt-10">
           <CourseIndexingSummary courseId={courseId} />
         </div>
+
+        <Suspense fallback={<ClassWeaknessAnalyticsSkeleton />}>
+          <ClassWeaknessAnalytics courseId={courseId} />
+        </Suspense>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
           {/* Left Column */}

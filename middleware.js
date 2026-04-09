@@ -39,7 +39,17 @@ function isPublicRoute(pathWithoutLocale) {
 }
 
 function getRoleRestriction(pathWithoutLocale) {
-  return ROLE_PROTECTED_ROUTES.find(({ prefix }) => pathWithoutLocale.startsWith(prefix));
+  const restriction = ROLE_PROTECTED_ROUTES.find(({ prefix }) =>
+    pathWithoutLocale.startsWith(prefix)
+  );
+  // Student remediation dashboard: allow enrolled students (auth still required below)
+  if (
+    restriction?.prefix === "/dashboard" &&
+    pathWithoutLocale.startsWith("/dashboard/remediation")
+  ) {
+    return null;
+  }
+  return restriction;
 }
 
 export default auth((req) => {

@@ -28,8 +28,16 @@ export function getClient() {
 
     console.info(`[ChromaDB] Initializing client for host: ${config.host}`);
     
+    // Parse the URL to extract host, port, and ssl settings
+    const url = new URL(config.host);
+    const isHttps = url.protocol === 'https:';
+    const host = url.hostname;
+    const port = url.port || (isHttps ? '443' : '8000');
+    
     cached.client = new ChromaClient({
-      path: config.host,
+      host,
+      port: parseInt(port, 10),
+      ssl: isHttps,
     });
     
     return cached.client;
