@@ -37,7 +37,7 @@ const nextConfig = {
         contentDispositionType: 'attachment',
         contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     },
-    serverExternalPackages: ['mongoose'],
+    serverExternalPackages: ['mongoose', '@xenova/transformers', 'sharp', 'onnxruntime-node', 'chromadb', 'fluent-ffmpeg', 'ffmpeg-static'],
     experimental: {
         serverActions: {
             bodySizeLimit: '2mb',

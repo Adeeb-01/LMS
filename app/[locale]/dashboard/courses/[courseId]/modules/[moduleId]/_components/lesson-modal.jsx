@@ -22,9 +22,11 @@ import { VideoUrlForm } from "./video-url-form";
 import { LessonActions } from "./lesson-action";
 import { useRouter } from "next/navigation";
 import { PublishBadge } from "@/components/ui/publish-badge";
+import { FileText, Sparkles } from "lucide-react";
 
 export const LessonModal = ({ open, setOpen, courseId, lesson, moduleId }) => {
   const t = useTranslations("ChapterEdit");
+  const tMCQ = useTranslations("MCQGeneration");
   const router = useRouter();
 
   function handleDelete() {
@@ -114,6 +116,42 @@ export const LessonModal = ({ open, setOpen, courseId, lesson, moduleId }) => {
                 courseId={courseId}
                 lessonId={lesson?.id}
               />
+              
+              <div className="mt-8 border bg-slate-100 rounded-md p-4">
+                <div className="font-medium flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-x-2">
+                    <IconBadge icon={FileText} />
+                    <h2 className="text-xl">{t("studyMaterials")}</h2>
+                  </div>
+                  <Link 
+                    href={`/dashboard/courses/${courseId}/lessons/${lesson?.id}/document`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    {t("manageDocument")}
+                  </Link>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {t("studyMaterialsHint")}
+                </p>
+              </div>
+
+              <div className="mt-4 border bg-indigo-50 border-indigo-100 rounded-md p-4">
+                <div className="font-medium flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-x-2">
+                    <IconBadge icon={Sparkles} />
+                    <h2 className="text-xl text-indigo-900">{tMCQ("title")}</h2>
+                  </div>
+                  <Link 
+                    href={`/dashboard/courses/${courseId}/lessons/${lesson?.id}/generate-questions`}
+                    className="text-sm text-indigo-600 font-semibold hover:underline"
+                  >
+                    {tMCQ("trigger")}
+                  </Link>
+                </div>
+                <p className="text-sm text-indigo-700/70">
+                  {tMCQ("triggerDescription")}
+                </p>
+              </div>
             </div>
           </div>
         </div>

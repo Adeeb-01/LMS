@@ -8,7 +8,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { Grip, Pencil } from "lucide-react";
+import { Grip, Pencil, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { CirclePlay } from "lucide-react";
@@ -16,6 +16,7 @@ import { PublishBadge } from "@/components/ui/publish-badge";
 
 export const LessonList = ({ items, onReorder, onEdit }) => {
   const t = useTranslations("ChapterEdit");
+  const tAlign = useTranslations("Alignment");
   const [isMounted, setIsMounted] = useState(false);
   const [modules, setModules] = useState(items);
 
@@ -85,6 +86,19 @@ export const LessonList = ({ items, onReorder, onEdit }) => {
                       <span dir="auto">{module.title}</span>
                     </div>
                     <div className="ms-auto pe-2 flex items-center gap-x-2">
+                      {module.alignmentStatus === 'completed' ? (
+                        <div title={tAlign("ready")} className="flex items-center text-green-600">
+                          <CheckCircle2 size={14} />
+                        </div>
+                      ) : module.jobStatus === 'processing' || module.jobStatus === 'queued' ? (
+                        <div title={tAlign("processing")} className="flex items-center text-amber-600">
+                          <Loader2 size={14} className="animate-spin" />
+                        </div>
+                      ) : module.alignmentStatus === 'failed' ? (
+                        <div title={tAlign("failed")} className="flex items-center text-red-600">
+                          <AlertCircle size={14} />
+                        </div>
+                      ) : null}
                       <PublishBadge 
                         status={module.active ? "published" : "draft"} 
                       />

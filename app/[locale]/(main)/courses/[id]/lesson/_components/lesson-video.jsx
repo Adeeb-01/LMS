@@ -1,12 +1,18 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import ReactPlayer from "react-player/youtube";
 import { AlertCircle, Loader2, VideoOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useVideoSync } from "../_components/video-text-sync";
+import { OralAssessmentPanel } from "./oral-assessment-panel";
+import { RagTutorPanel } from "./rag-tutor-panel";
+import { AssessmentSkeleton, TutorSkeleton } from "@/components/assessment/assessment-skeleton";
+import { getAssessmentPoints } from "@/app/actions/oral-assessment";
+import { MessageSquare, X } from "lucide-react";
 
 export const LessonVideo = ({ courseId, lesson, module }) => {
     const t = useTranslations("Lesson");
@@ -16,8 +22,121 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     const [duration, setDuration] = useState(0);
     const [videoError, setVideoError] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const videoRef = useRef(null);
+    const { handleTimeUpdate, videoRef, seekTo } = useVideoSync();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // --- Oral Assessment & RAG Tutor State ---
+    const [assessments, setAssessments] = useState([]);
+    const [isAssessmentsLoading, setIsAssessmentsLoading] = useState(true);
+    const [activeAssessment, setActiveAssessment] = useState(null);
+    const [completedAssessments, setCompletedAssessments] = useState(new Set());
+    const [isTutorOpen, setIsTutorOpen] = useState(false);
+    const lastTriggeredRef = useRef(-1);
+
+    const toggleTutor = () => {
+        setIsTutorOpen(prev => !prev);
+        if (!isTutorOpen && videoRef.current) {
+            // Pause video when opening tutor
+            pauseVideo();
+        }
+    };
+
+    const pauseVideo = () => {
+        if (videoRef.current) {
+            if (typeof videoRef.current.pause === 'function') {
+                videoRef.current.pause();
+            } else if (videoRef.current.getInternalPlayer) {
+                const internal = videoRef.current.getInternalPlayer();
+                if (internal?.pauseVideo) internal.pauseVideo();
+                else if (internal?.pause) internal.pause();
+            }
+        }
+    };
+
+    const playVideo = () => {
+        if (videoRef.current) {
+            if (typeof videoRef.current.play === 'function') {
+                videoRef.current.play();
+            } else if (videoRef.current.getInternalPlayer) {
+                const internal = videoRef.current.getInternalPlayer();
+                if (internal?.playVideo) internal.playVideo();
+                else if (internal?.play) internal.play();
+            }
+        }
+    };
+
+    // Fetch assessment points on mount
+    useEffect(() => {
+        const fetchAssessments = async () => {
+            setIsAssessmentsLoading(true);
+            try {
+                const result = await getAssessmentPoints(lesson.id);
+                if (result.ok) {
+                    setAssessments(result.assessments);
+                }
+            } finally {
+                setIsAssessmentsLoading(false);
+            }
+        };
+        fetchAssessments();
+    }, [lesson.id]);
+
+    // Check for assessment triggers
+    const checkAssessmentTrigger = useCallback((currentTime) => {
+        if (activeAssessment) return;
+
+        const trigger = assessments.find(a => 
+            !completedAssessments.has(a.id) && 
+            currentTime >= a.triggerTimestamp && 
+            currentTime < a.triggerTimestamp + 2 && // 2-second window
+            a.id !== lastTriggeredRef.current
+        );
+
+        if (trigger) {
+            lastTriggeredRef.current = trigger.id;
+            setActiveAssessment(trigger);
+            
+            // Pause video
+            pauseVideo();
+        }
+    }, [assessments, completedAssessments, activeAssessment, videoRef]);
+
+    const handleAssessmentComplete = () => {
+        setCompletedAssessments(prev => new Set([...prev, activeAssessment.id]));
+        setActiveAssessment(null);
+        
+        // Resume video
+        playVideo();
+    };
+
+    const handleAssessmentCancel = () => {
+        setCompletedAssessments(prev => new Set([...prev, activeAssessment.id]));
+        setActiveAssessment(null);
+        
+        // Resume video
+        playVideo();
+    };
+    // -----------------------------
+
+    // Handle initial seek from URL param 't'
+    useEffect(() => {
+        const tParam = searchParams.get('t');
+        if (tParam && !isLoading && videoRef.current) {
+            const seconds = parseInt(tParam, 10);
+            if (!isNaN(seconds)) {
+                // Delay slightly to ensure player is ready
+                const timeout = setTimeout(() => {
+                    if (typeof videoRef.current.seekTo === 'function') {
+                        videoRef.current.seekTo(seconds);
+                    } else if (videoRef.current.currentTime !== undefined) {
+                        videoRef.current.currentTime = seconds;
+                    }
+                }, 500);
+                return () => clearTimeout(timeout);
+            }
+        }
+    }, [searchParams, isLoading, videoRef]);
 
     const isLocalVideo = useMemo(
         () => lesson.videoProvider === "local" && !!lesson.videoUrl,
@@ -85,10 +204,13 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     const handleOnStart = useCallback(() => setStarted(true), []);
     const handleOnEnded = useCallback(() => setEnded(true), []);
     const handleOnDuration = useCallback((dur) => setDuration(dur), []);
-    const handleOnProgress = useCallback(() => {
-        // Track video progress - can be used for analytics or resuming playback
-        // Currently just a placeholder to prevent errors
-    }, []);
+    const handleOnProgress = useCallback((progress) => {
+        // progress can be { playedSeconds, ... } from ReactPlayer
+        // or just the time from HTML5 video element
+        const currentTime = typeof progress === 'number' ? progress : progress.playedSeconds;
+        handleTimeUpdate(currentTime);
+        checkAssessmentTrigger(currentTime);
+    }, [handleTimeUpdate, checkAssessmentTrigger]);
 
     const handleVideoError = useCallback(async (e) => {
         setIsLoading(false);
@@ -178,6 +300,59 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
                         <Loader2 className="h-8 w-8 animate-spin text-white" />
                     </div>
                 )}
+                
+                {activeAssessment && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
+                        {isAssessmentsLoading ? (
+                            <AssessmentSkeleton />
+                        ) : (
+                            <OralAssessmentPanel 
+                                assessment={activeAssessment}
+                                lessonId={lesson.id}
+                                courseId={courseId}
+                                onComplete={handleAssessmentComplete}
+                                onCancel={handleAssessmentCancel}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {isTutorOpen && (
+                    <div className="absolute top-4 right-4 z-20 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="relative">
+                            <Button 
+                                variant="secondary" 
+                                size="icon" 
+                                className="absolute -top-2 -left-2 h-6 w-6 rounded-full shadow-lg z-30"
+                                onClick={() => setIsTutorOpen(false)}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                            <RagTutorPanel 
+                                lessonId={lesson.id}
+                                courseId={courseId}
+                                onSeek={(seconds) => seekTo(seconds)}
+                                onReciteBackTrigger={(interactionId, explanation) => {
+                                    // US3: Trigger recite-back modal
+                                    console.log("Recite back triggered", interactionId);
+                                }}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {!isTutorOpen && !activeAssessment && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
+                        onClick={toggleTutor}
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                        {t("askTutor") || "Ask Tutor"}
+                    </Button>
+                )}
+
                 <video
                     ref={videoRef}
                     src={videoUrl}
@@ -189,7 +364,7 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
                     onPlay={handleOnStart}
                     onEnded={handleOnEnded}
                     onDurationChange={(e) => handleOnDuration(e.target.duration)}
-                    onTimeUpdate={handleOnProgress}
+                    onTimeUpdate={(e) => handleOnProgress(e.target.currentTime)}
                     preload="metadata"
                 >
                     Your browser does not support the video tag.
@@ -201,8 +376,61 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     // External video - use ReactPlayer
     if (hasWindow && videoUrl) {
         return (
-            <div className="w-full">
+            <div className="relative w-full">
+                {activeAssessment && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
+                        {isAssessmentsLoading ? (
+                            <AssessmentSkeleton />
+                        ) : (
+                            <OralAssessmentPanel 
+                                assessment={activeAssessment}
+                                lessonId={lesson.id}
+                                courseId={courseId}
+                                onComplete={handleAssessmentComplete}
+                                onCancel={handleAssessmentCancel}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {isTutorOpen && (
+                    <div className="absolute top-4 right-4 z-20 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="relative">
+                            <Button 
+                                variant="secondary" 
+                                size="icon" 
+                                className="absolute -top-2 -left-2 h-6 w-6 rounded-full shadow-lg z-30"
+                                onClick={() => setIsTutorOpen(false)}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                            <RagTutorPanel 
+                                lessonId={lesson.id}
+                                courseId={courseId}
+                                onSeek={(seconds) => seekTo(seconds)}
+                                onReciteBackTrigger={(interactionId, explanation) => {
+                                    // US3: Trigger recite-back modal
+                                    console.log("Recite back triggered", interactionId);
+                                }}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {!isTutorOpen && !activeAssessment && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
+                        onClick={toggleTutor}
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                        {t("askTutor") || "Ask Tutor"}
+                    </Button>
+                )}
+                
                 <ReactPlayer
+                    ref={videoRef}
                     url={videoUrl}
                     width="100%"
                     height="470px"

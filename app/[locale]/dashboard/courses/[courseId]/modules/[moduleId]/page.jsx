@@ -17,6 +17,7 @@ import { assertInstructorOwnsModule } from "@/lib/authorization";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PublishBadge } from "@/components/ui/publish-badge";
+import { getAlignmentStatusesForLessons } from "@/queries/alignment";
 
 const Module = async ({ params }) => {
   const t = await getTranslations("ChapterEdit");
@@ -52,7 +53,19 @@ const Module = async ({ params }) => {
   const rawlessons = (await replaceMongoIdInArray(courseModule?.lessonIds))
     .sort((a, b) => a.order - b.order);
 
-  const lessons = sanitizeData(rawlessons);
+  // Fetch alignment statuses for all lessons
+  const lessonIds = rawlessons.map(l => l.id);
+  const alignmentStatuses = await getAlignmentStatusesForLessons(lessonIds);
+
+  const lessons = sanitizeData(rawlessons).map(lesson => {
+    const status = alignmentStatuses.find(s => s.lessonId === lesson.id);
+    return {
+      ...lesson,
+      alignmentStatus: status?.alignmentStatus || 'pending',
+      jobStatus: status?.jobStatus,
+      alignmentProgress: status?.progress
+    };
+  });
 
   return (
     <>

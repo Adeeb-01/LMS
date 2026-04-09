@@ -1,9 +1,13 @@
+import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { Separator } from "@/components/ui/separator";
 import VideoDescription from "./_components/video-description";
 import { LessonVideoWrapper } from "./_components/lesson-video-wrapper";
+import StudyMaterialsWrapper from "./_components/study-materials-wrapper";
+import { DocumentSkeleton } from "@/components/documents/document-skeleton";
 import { getCourseDetails } from "@/queries/courses";
 import { replaceMongoIdInArray, replaceMongoIdInObject } from "@/lib/convertData";
+import { LessonSyncWrapper } from "./_components/lesson-sync-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +63,23 @@ const Course = async ({ params, searchParams }) => {
 
 	return (
 		<div className="flex flex-col w-full max-w-4xl mx-auto pb-12">
-			{/* Video section */}
-			<section className="w-full rounded-lg overflow-hidden bg-muted/30">
-				<LessonVideoWrapper courseId={id} lesson={lessonPlain} module={defaultModule} />
-			</section>
+			<LessonSyncWrapper lessonId={lessonPlain.id} courseId={id}>
+				{/* Video section */}
+				<section className="w-full rounded-lg overflow-hidden bg-muted/30">
+					<LessonVideoWrapper courseId={id} lesson={lessonPlain} module={defaultModule} />
+				</section>
 
-			{/* Lesson details - dir="auto" for correct direction of mixed content (e.g. English titles on Arabic pages) */}
-			<section className="mt-6 space-y-4" dir="auto">
-				<h1 className="text-2xl font-semibold">{lessonPlain.title}</h1>
-				<Separator />
-				<VideoDescription description={lessonPlain.description} />
-			</section>
+				{/* Lesson details - dir="auto" for correct direction of mixed content (e.g. English titles on Arabic pages) */}
+				<section className="mt-6 space-y-4" dir="auto">
+					<h1 className="text-2xl font-semibold">{lessonPlain.title}</h1>
+					<Separator />
+					<VideoDescription description={lessonPlain.description} />
+					
+					<Suspense fallback={<DocumentSkeleton />}>
+						<StudyMaterialsWrapper lessonId={lessonPlain.id} />
+					</Suspense>
+				</section>
+			</LessonSyncWrapper>
 		</div>
 	);
 };

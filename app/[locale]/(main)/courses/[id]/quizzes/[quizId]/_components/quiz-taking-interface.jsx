@@ -14,11 +14,11 @@ import { useTranslations } from "next-intl";
 import { QuizTimer } from "./quiz-timer";
 import { QuestionNavigator } from "./question-navigator";
 import { QuizSummary } from "./quiz-summary";
+import { OralQuestionPlayer } from "@/components/questions/OralQuestionPlayer";
 import * as quizStorage from "@/lib/quiz-storage";
 
 export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPreview }) {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const t = useTranslations("Quiz");
     const [isLoading, setIsLoading] = useState(!existingAttemptId);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +54,14 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
                             autosaveAttempt(existingAttemptId, answerMap).catch(err => console.error("Sync failed:", err));
                         } else {
                             attempt.answers?.forEach(a => {
-                                answerMap[a.questionId] = a.selectedOptionIds;
+                                if (a.audioUrl || a.skippedDueToMic) {
+                                    answerMap[a.questionId] = {
+                                        audioUrl: a.audioUrl,
+                                        skippedDueToMic: a.skippedDueToMic
+                                    };
+                                } else {
+                                    answerMap[a.questionId] = a.selectedOptionIds;
+                                }
                             });
                         }
                         setAnswers(answerMap);
@@ -192,6 +199,13 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         }
     }, [attemptId, answers, courseId, isSubmitting, shuffledQuestions, quiz.id, router]);
 
+    const handleJumpToIndex = useCallback((index) => {
+        setCurrentIndex(index);
+        setShowSummary(false);
+        // Focus management: scroll to top of question area
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -218,17 +232,20 @@ export function QuizTakingInterface({ quiz, courseId, existingAttemptId, isPrevi
         );
     }
 
-    const handleJumpToIndex = useCallback((index) => {
-        setCurrentIndex(index);
-        setShowSummary(false);
-        // Focus management: scroll to top of question area
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
-
     const renderQuestion = () => {
         const questionId = currentQuestion.id;
         const currentAnswer = answers[questionId];
         const isMultiple = currentQuestion.type === "multi";
+
+        if (currentQuestion.type === "oral") {
+            return (
+                <OralQuestionPlayer
+                    question={currentQuestion}
+                    onAnswerChange={handleAnswerChange}
+                    initialAnswer={currentAnswer}
+                />
+            );
+        }
 
         if (currentQuestion.type === "true_false") {
             // For true/false, use the actual option IDs from the question

@@ -14,16 +14,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { updateQuestion } from "@/app/actions/quizzes";
+import { updateQuestion } from "@/app/actions/quizv2";
 import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import { OralQuestionForm } from "@/components/questions/OralQuestionForm";
 
 export function EditQuestionModal({ question, onClose, onSave }) {
   const t = useTranslations("Quiz");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [questionText, setQuestionText] = useState(question.questionText || "");
+  const [questionText, setQuestionText] = useState(question.text || ""); // Use 'text' as per Zod schema
   const [points, setPoints] = useState(question.points?.toString() || "1");
   const [explanation, setExplanation] = useState(question.explanation || "");
+  const [referenceAnswer, setReferenceAnswer] = useState(question.referenceAnswer || "");
   const [options, setOptions] = useState(
     question.options?.length > 0
       ? question.options.map((opt) => ({
@@ -36,7 +39,7 @@ export function EditQuestionModal({ question, onClose, onSave }) {
         ]
   );
 
-  const questionType = question.questionType;
+  const questionType = question.type; // Use 'type' as per Zod schema
 
   const handleAddOption = () => {
     setOptions([...options, { text: "", isCorrect: false }]);
@@ -67,7 +70,7 @@ export function EditQuestionModal({ question, onClose, onSave }) {
       return;
     }
 
-    if (questionType !== "short_text") {
+    if (questionType !== "short_text" && questionType !== "oral") {
       const validOptions = options.filter((opt) => opt.text.trim());
       if (validOptions.length < 2) {
         toast.error(t("minTwoOptions"));
@@ -80,15 +83,21 @@ export function EditQuestionModal({ question, onClose, onSave }) {
       }
     }
 
+    if (questionType === "oral" && !referenceAnswer.trim()) {
+      toast.error(t("referenceAnswerRequired"));
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const updateData = {
-        questionText: questionText.trim(),
+        text: questionText.trim(), // Use 'text' as per Zod schema
         points: parseInt(points) || 1,
         explanation: explanation.trim(),
+        referenceAnswer: questionType === "oral" ? referenceAnswer.trim() : undefined,
         options:
-          questionType === "short_text"
+          questionType === "short_text" || questionType === "oral"
             ? []
             : options
                 .filter((opt) => opt.text.trim())
@@ -218,6 +227,13 @@ export function EditQuestionModal({ question, onClose, onSave }) {
                 </div>
               </div>
             </div>
+          )}
+
+          {questionType === "oral" && (
+            <OralQuestionForm
+              referenceAnswer={referenceAnswer}
+              onChange={setReferenceAnswer}
+            />
           )}
 
           <div>

@@ -22,6 +22,7 @@ import { CourseInfoSection } from "./_components/course-info-section";
 import { CourseMediaSection } from "./_components/course-media-section";
 import { CoursePricingSection } from "./_components/course-pricing-section";
 import { CourseStatusSection } from "./_components/course-status-section";
+import CourseIndexingSummary from "./_components/course-indexing-summary";
 import { PublishBadge } from "@/components/ui/publish-badge";
 import { validatePublishRequirementsAction } from "@/app/actions/course";
 import { PublishChecklist } from "./_components/publish-checklist";
@@ -108,6 +109,10 @@ const EditCourse = async ({ params }) => {
 
         <div className="mt-6">
           <PublishChecklist missing={validation.missing} />
+        </div>
+
+        <div className="mt-10">
+          <CourseIndexingSummary courseId={courseId} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
