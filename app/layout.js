@@ -1,38 +1,31 @@
-import localFont from "next/font/local";
-import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { dbConnect } from "@/service/mongo";
-import { getLocale } from "next-intl/server";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+import { headers } from "next/headers";
+import { routing } from "@/i18n/routing";
+import { cairo, geistMono, geistSans, poppins } from "@/lib/fonts";
 
 export const metadata = {
   title: "Easy Learning Academy - Best Online Professional Courses",
   description: "Best Online Professional Courses",
 };
 
-const poppins = Inter({ subsets: ["latin"], variable: "--font-poppins" });
-
-const cairo = Cairo({
-  subsets: ["latin", "arabic"],
-  variable: "--font-cairo",
-  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
-  display: "swap",
-});
+/**
+ * Resolve active locale for <html lang/dir> before child layouts run.
+ * `getLocale()` in the root layout can resolve to defaultLocale too early; middleware
+ * sets `x-next-intl-locale` on every negotiated request.
+ */
+function localeFromRequestHeaders(headerLocale) {
+  if (headerLocale && routing.locales.includes(headerLocale)) {
+    return headerLocale;
+  }
+  return routing.defaultLocale;
+}
 
 export default async function RootLayout({ children }) {
-  const locale = await getLocale();
+  const headerList = await headers();
+  const locale = localeFromRequestHeaders(headerList.get("x-next-intl-locale"));
 
   try {
     await dbConnect();
@@ -48,8 +41,7 @@ export default async function RootLayout({ children }) {
           geistMono.variable,
           poppins.variable,
           cairo.variable,
-          "antialiased",
-          locale === "ar" ? cairo.className : poppins.className
+          "antialiased"
         )}
       >
         {children}

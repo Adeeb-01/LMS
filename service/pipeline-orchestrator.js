@@ -104,7 +104,14 @@ export class PipelineOrchestrator {
     const pipeline = await PipelineJob.findById(pipelineId);
     if (!pipeline || pipeline.status === 'cancelled') return;
 
-    pipeline.status = stage;
+    // When alignment and indexing run in parallel, don't overwrite
+    // 'indexing' status with 'aligning' or vice versa
+    const parallelStages = ['aligning', 'indexing'];
+    if (parallelStages.includes(stage) && parallelStages.includes(pipeline.status)) {
+      // Both are active — keep whichever started first, just update the sub-stage
+    } else {
+      pipeline.status = stage;
+    }
     
     if (stage === 'completed') {
       pipeline.completedAt = new Date();
@@ -281,14 +288,25 @@ export class PipelineOrchestrator {
     await pipeline.save();
 
     // Transition to next stage (T032)
+    // Alignment and indexing run in PARALLEL after extraction.
+    // Generation starts once indexing is done (alignment is independent).
     switch (stageName) {
       case 'extraction':
-        await this.transitionToStage(pipelineId, 'aligning');
+        // Trigger alignment and indexing in parallel — they're independent
+        await Promise.all([
+          this.transitionToStage(pipelineId, 'aligning').catch(err =>
+            this.handleStageFailure(pipelineId, 'aligning', err.message)
+          ),
+          this.transitionToStage(pipelineId, 'indexing').catch(err =>
+            this.handleStageFailure(pipelineId, 'indexing', err.message)
+          ),
+        ]);
         break;
       case 'alignment':
-        await this.transitionToStage(pipelineId, 'indexing');
+        // Alignment is done — no downstream dependency. Nothing to trigger.
         break;
       case 'indexing':
+        // Indexing done → trigger question generation
         await this.transitionToStage(pipelineId, 'generating');
         break;
       case 'mcqGeneration':
@@ -320,9 +338,14 @@ export class PipelineOrchestrator {
       pipeline.stages[stageKey].completedAt = new Date();
     }
 
-    // Pipeline status reflects failure unless it's a generation stage where partial success is allowed
-    if (stageKey !== 'mcqGeneration' && stageKey !== 'oralGeneration') {
+    // Alignment failure is non-fatal — indexing and generation can still proceed.
+    // Only extraction failure or both-generation-failed kills the pipeline.
+    const nonFatalStages = ['alignment', 'mcqGeneration', 'oralGeneration'];
+    if (!nonFatalStages.includes(stageKey)) {
       pipeline.status = 'failed';
+    } else if (stageKey === 'alignment') {
+      // Alignment failed but indexing runs independently — keep pipeline alive
+      console.warn(`[Pipeline] Alignment failed for pipeline ${pipelineId}, continuing with indexing/generation.`);
     } else {
       // Check if both failed
       if (pipeline.stages.mcqGeneration.status === 'failed' && 

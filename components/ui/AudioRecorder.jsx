@@ -62,7 +62,7 @@ export function AudioRecorder({ onRecordingComplete, onClear, onError, initialAu
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
-      console.error("Error accessing microphone:", err);
+      console.warn("[AudioRecorder] Microphone access failed:", err.name, err.message);
       setPermissionError(true);
       
       // Determine error type for better user feedback

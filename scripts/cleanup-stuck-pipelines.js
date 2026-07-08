@@ -1,6 +1,7 @@
 /**
  * Cleanup script to clear stuck pipeline jobs
- * Run with: node scripts/cleanup-stuck-pipelines.js
+ * Run from repo root: node scripts/cleanup-stuck-pipelines.js
+ * Or: npm run cleanup-stuck-pipelines
  */
 
 import mongoose from "mongoose";

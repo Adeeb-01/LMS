@@ -294,31 +294,62 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     // Local video - use HTML5 video player for better Range support
     if (isLocalVideo && hasWindow) {
         return (
-            <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
-                {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                        <Loader2 className="h-8 w-8 animate-spin text-white" />
-                    </div>
-                )}
-                
-                {activeAssessment && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
-                        {isAssessmentsLoading ? (
-                            <AssessmentSkeleton />
-                        ) : (
-                            <OralAssessmentPanel 
-                                assessment={activeAssessment}
-                                lessonId={lesson.id}
-                                courseId={courseId}
-                                onComplete={handleAssessmentComplete}
-                                onCancel={handleAssessmentCancel}
-                            />
-                        )}
-                    </div>
-                )}
+            <div className="relative w-full">
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                    {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                            <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        </div>
+                    )}
+                    
+                    {activeAssessment && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
+                            {isAssessmentsLoading ? (
+                                <AssessmentSkeleton />
+                            ) : (
+                                <OralAssessmentPanel 
+                                    assessment={activeAssessment}
+                                    lessonId={lesson.id}
+                                    courseId={courseId}
+                                    onComplete={handleAssessmentComplete}
+                                    onCancel={handleAssessmentCancel}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {!isTutorOpen && !activeAssessment && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
+                            onClick={toggleTutor}
+                        >
+                            <MessageSquare className="h-4 w-4" />
+                            {t("askTutor") || "Ask Tutor"}
+                        </Button>
+                    )}
+
+                    <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        controls
+                        className="w-full h-full"
+                        onError={handleVideoError}
+                        onLoadedData={handleVideoLoaded}
+                        onCanPlay={handleVideoCanPlay}
+                        onPlay={handleOnStart}
+                        onEnded={handleOnEnded}
+                        onDurationChange={(e) => handleOnDuration(e.target.duration)}
+                        onTimeUpdate={(e) => handleOnProgress(e.target.currentTime)}
+                        preload="metadata"
+                    >
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
 
                 {isTutorOpen && (
-                    <div className="absolute top-4 right-4 z-20 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="absolute top-4 right-4 z-30 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="relative">
                             <Button 
                                 variant="secondary" 
@@ -333,42 +364,12 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
                                 courseId={courseId}
                                 onSeek={(seconds) => seekTo(seconds)}
                                 onReciteBackTrigger={(interactionId, explanation) => {
-                                    // US3: Trigger recite-back modal
                                     console.log("Recite back triggered", interactionId);
                                 }}
                             />
                         </div>
                     </div>
                 )}
-
-                {!isTutorOpen && !activeAssessment && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
-                        onClick={toggleTutor}
-                    >
-                        <MessageSquare className="h-4 w-4" />
-                        {t("askTutor") || "Ask Tutor"}
-                    </Button>
-                )}
-
-                <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    controls
-                    className="w-full h-full"
-                    onError={handleVideoError}
-                    onLoadedData={handleVideoLoaded}
-                    onCanPlay={handleVideoCanPlay}
-                    onPlay={handleOnStart}
-                    onEnded={handleOnEnded}
-                    onDurationChange={(e) => handleOnDuration(e.target.duration)}
-                    onTimeUpdate={(e) => handleOnProgress(e.target.currentTime)}
-                    preload="metadata"
-                >
-                    Your browser does not support the video tag.
-                </video>
             </div>
         );
     }
@@ -377,24 +378,51 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
     if (hasWindow && videoUrl) {
         return (
             <div className="relative w-full">
-                {activeAssessment && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
-                        {isAssessmentsLoading ? (
-                            <AssessmentSkeleton />
-                        ) : (
-                            <OralAssessmentPanel 
-                                assessment={activeAssessment}
-                                lessonId={lesson.id}
-                                courseId={courseId}
-                                onComplete={handleAssessmentComplete}
-                                onCancel={handleAssessmentCancel}
-                            />
-                        )}
-                    </div>
-                )}
+                <div className="relative">
+                    {activeAssessment && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 p-4 overflow-y-auto">
+                            {isAssessmentsLoading ? (
+                                <AssessmentSkeleton />
+                            ) : (
+                                <OralAssessmentPanel 
+                                    assessment={activeAssessment}
+                                    lessonId={lesson.id}
+                                    courseId={courseId}
+                                    onComplete={handleAssessmentComplete}
+                                    onCancel={handleAssessmentCancel}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {!isTutorOpen && !activeAssessment && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
+                            onClick={toggleTutor}
+                        >
+                            <MessageSquare className="h-4 w-4" />
+                            {t("askTutor") || "Ask Tutor"}
+                        </Button>
+                    )}
+                    
+                    <ReactPlayer
+                        ref={videoRef}
+                        url={videoUrl}
+                        width="100%"
+                        height="470px"
+                        controls={true}
+                        onReady={() => setIsLoading(false)}
+                        onStart={handleOnStart}
+                        onDuration={handleOnDuration}
+                        onProgress={handleOnProgress}
+                        onEnded={handleOnEnded}
+                    />
+                </div>
 
                 {isTutorOpen && (
-                    <div className="absolute top-4 right-4 z-20 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="absolute top-4 right-4 z-30 w-80 md:w-96 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="relative">
                             <Button 
                                 variant="secondary" 
@@ -409,37 +437,12 @@ export const LessonVideo = ({ courseId, lesson, module }) => {
                                 courseId={courseId}
                                 onSeek={(seconds) => seekTo(seconds)}
                                 onReciteBackTrigger={(interactionId, explanation) => {
-                                    // US3: Trigger recite-back modal
                                     console.log("Recite back triggered", interactionId);
                                 }}
                             />
                         </div>
                     </div>
                 )}
-
-                {!isTutorOpen && !activeAssessment && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="absolute bottom-16 right-4 z-20 gap-2 shadow-lg bg-background/80 backdrop-blur hover:bg-background"
-                        onClick={toggleTutor}
-                    >
-                        <MessageSquare className="h-4 w-4" />
-                        {t("askTutor") || "Ask Tutor"}
-                    </Button>
-                )}
-                
-                <ReactPlayer
-                    ref={videoRef}
-                    url={videoUrl}
-                    width="100%"
-                    height="470px"
-                    controls={true}
-                    onStart={handleOnStart}
-                    onDuration={handleOnDuration}
-                    onProgress={handleOnProgress}
-                    onEnded={handleOnEnded}
-                />
             </div>
         );
     }

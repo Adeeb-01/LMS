@@ -91,10 +91,10 @@ export function AdaptiveConfigForm({ quiz }) {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Layers className="w-5 h-5 text-blue-500" />
-                    {t("advancedTestingConfig") || "Advanced Testing Configuration"}
+                    {t("adaptiveTestingConfig") || "Adaptive Testing Configuration"}
                 </CardTitle>
                 <CardDescription>
-                    {t("advancedTestingDescription") || "Configure adaptive testing or block-based adaptive testing (BAT) for this quiz."}
+                    {t("adaptiveTestingDescription") || "Configure adaptive testing or block-based adaptive testing (BAT) for this quiz."}
                 </CardDescription>
             </CardHeader>
             <CardContent>

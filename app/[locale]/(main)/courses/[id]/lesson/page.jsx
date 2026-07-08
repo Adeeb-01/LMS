@@ -65,7 +65,7 @@ const Course = async ({ params, searchParams }) => {
 		<div className="flex flex-col w-full max-w-4xl mx-auto pb-12">
 			<LessonSyncWrapper lessonId={lessonPlain.id} courseId={id}>
 				{/* Video section */}
-				<section className="w-full rounded-lg overflow-hidden bg-muted/30">
+				<section className="w-full rounded-lg bg-muted/30">
 					<LessonVideoWrapper courseId={id} lesson={lessonPlain} module={defaultModule} />
 				</section>
 

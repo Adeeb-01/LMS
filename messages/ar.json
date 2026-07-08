@@ -442,10 +442,15 @@
       "title": "المعلم الذكي",
       "askTutor": "اسأل المعلم",
       "askYourQuestion": "اطرح سؤالك",
+      "welcomeMessage": "اسألني أي شيء عن هذا الدرس!",
+      "welcomeSubtext": "أعتمد على محتوى المحاضرة ويمكنني مساعدتك في توضيح المفاهيم.",
       "inputMethod": "طريقة الإدخال",
       "voice": "صوتي",
       "text": "نصي",
+      "askPlaceholder": "اكتب سؤالك...",
       "tutorResponse": "رد المعلم",
+      "relatedTimestamps": "الأوقات ذات الصلة:",
+      "generalKnowledge": "معرفة عامة",
       "notCovered": "هذا الموضوع غير مغطى في المحاضرة الحالية.",
       "relatedTopics": "مواضيع ذات صلة قد تجدها مفيدة:",
       "jumpToTimestamp": "انتقل إلى هذا القسم",
@@ -1302,7 +1307,8 @@
     "reviewDescription": "اكتب ملخصاً موجزاً عن الدورة",
     "reviewAdded": "تم إضافة التقييم",
     "ratingValidation": "يجب أن يكون التقييم من 1 إلى 5",
-    "descriptionRequired": "الوصف مطلوب!"
+    "descriptionRequired": "الوصف مطلوب!",
+    "askTutor": "اسأل المعلم"
   },
   "ExtractionStatus": {
     "uploading": "جاري رفع المستند...",

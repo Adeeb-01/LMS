@@ -267,47 +267,74 @@ export async function triggerOralAssessmentGeneration(courseId, lessonId) {
         const fullText = transcript.segments.map(s => s.text).join(" ");
 
         // 2. Call Gemini to generate assessment points
-        const client = new (await import("openai")).default({
-            apiKey: process.env.OPENAI_API_KEY,
-        });
+        const { GoogleGenerativeAI, SchemaType } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-        const response = await client.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an expert instructional designer. Based on the provided lecture transcript, identify 3-5 key moments where an oral assessment would reinforce learning.
-                    
-                    For each point, provide:
-                    1. triggerTimestamp: The time in seconds when the question should appear (must be within the video duration).
-                    2. questionText: A clear, concise oral question.
-                    3. referenceAnswer: A model answer for semantic comparison.
-                    4. keyConcepts: A list of 2-4 essential terms or concepts that should be in the student's answer.
-                    5. passingThreshold: A recommended similarity score (0.5 to 0.8).
-
-                    Return your response EXACTLY in this JSON format:
-                    {
-                        "assessments": [
-                            {
-                                "triggerTimestamp": number,
-                                "questionText": "string",
-                                "referenceAnswer": "string",
-                                "keyConcepts": ["string"],
-                                "passingThreshold": number
-                            }
-                        ]
-                    }`
+        const assessmentSchema = {
+            type: SchemaType.OBJECT,
+            properties: {
+                assessments: {
+                    type: SchemaType.ARRAY,
+                    items: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            triggerTimestamp: { type: SchemaType.NUMBER },
+                            questionText: { type: SchemaType.STRING },
+                            referenceAnswer: { type: SchemaType.STRING },
+                            keyConcepts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                            passingThreshold: { type: SchemaType.NUMBER },
+                        },
+                        required: ["triggerTimestamp", "questionText", "referenceAnswer", "keyConcepts", "passingThreshold"],
+                    },
                 },
-                {
-                    role: "user",
-                    content: `Lecture Transcript: "${fullText.substring(0, 15000)}"` // Limit to ~15k chars for context window
-                }
-            ],
-            response_format: { type: "json_object" }
-        });
+            },
+            required: ["assessments"],
+        };
 
-        const content = JSON.parse(response.choices[0].message.content);
-        const generatedAssessments = content.assessments;
+        const modelCandidates = [
+            process.env.GEMINI_GENERATION_MODEL,
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+        ].filter(Boolean);
+
+        let generatedAssessments = [];
+        let lastError = null;
+
+        for (const modelName of modelCandidates) {
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: assessmentSchema,
+                    },
+                    systemInstruction: `You are an expert instructional designer. Based on the provided lecture transcript, identify 3-5 key moments where an oral assessment would reinforce learning.
+For each point, provide:
+1. triggerTimestamp: The time in seconds when the question should appear.
+2. questionText: A clear, concise oral question.
+3. referenceAnswer: A model answer for semantic comparison.
+4. keyConcepts: A list of 2-4 essential terms or concepts.
+5. passingThreshold: A recommended similarity score (0.5 to 0.8).`,
+                });
+
+                const result = await model.generateContent(
+                    `Lecture Transcript: "${fullText.substring(0, 15000)}"`
+                );
+                const content = JSON.parse(result.response.text());
+                generatedAssessments = content.assessments || [];
+                break;
+            } catch (e) {
+                lastError = e;
+                const isOverloaded = e?.status === 503 || e?.status === 429;
+                if (isOverloaded) continue;
+                throw e;
+            }
+        }
+
+        if (generatedAssessments.length === 0 && lastError) {
+            throw lastError;
+        }
 
         // 3. Save as pending assessments
         const created = [];

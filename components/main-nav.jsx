@@ -20,7 +20,7 @@ const MainNav = ({ items, children }) => {
   const { locale } = useParams();
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [loginSession, setLoginSession] = useState(null);
   const [loggedInUser, setLoggedInUser] = useState(null);
@@ -28,8 +28,14 @@ const MainNav = ({ items, children }) => {
   useEffect(() => {
     setLoginSession(session);
     async function fetchMe() {
+      if (sessionStatus === 'loading') return;
+      if (!session?.user) {
+        setLoggedInUser(null);
+        return;
+      }
       try {
-        const response = await fetch('/api/me');
+        const response = await fetch('/api/me', { cache: 'no-store', credentials: 'same-origin' });
+        if (!response.ok) return;
         const data = await response.json();
         setLoggedInUser(data);
       } catch (error) {
@@ -37,7 +43,7 @@ const MainNav = ({ items, children }) => {
       }
     }
     fetchMe();
-  }, [session]);
+  }, [session, sessionStatus]);
 
   const switchLanguage = () => {
     const nextLocale = locale === 'ar' ? 'en' : 'ar';
