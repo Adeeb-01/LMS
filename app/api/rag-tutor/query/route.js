@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getLoggedInUser } from "@/lib/loggedin-user";
-import { transcribeAudio } from "@/lib/ai/transcription";
+import { transcribeAudio, transcribeAudioBase64 } from "@/lib/ai/transcription";
 import { askTutor } from "@/app/actions/rag-tutor";
 import { dbConnect } from "@/service/mongo";
 
 /**
  * POST /api/rag-tutor/query
- * Receives an audio URL, transcribes it, and queries the RAG tutor.
+ * Accepts voice (base64 audio or audioUrl) or text, transcribes if needed, and queries the RAG tutor.
  */
 export async function POST(request) {
   await dbConnect();
@@ -18,13 +18,12 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { audioUrl, question, lessonId, courseId } = body;
+    const { audioUrl, audioBase64, audioMimeType, question, lessonId, courseId } = body;
 
     if (!lessonId || !courseId) {
       return NextResponse.json({ ok: false, error: "MISSING_REQUIRED_FIELDS" }, { status: 400 });
     }
 
-    // Verify enrollment
     const { hasEnrollmentForCourse } = await import("@/queries/enrollments");
     const isEnrolled = await hasEnrollmentForCourse(courseId, user.id);
     if (!isEnrolled && user.role !== 'admin' && user.role !== 'instructor') {
@@ -34,21 +33,25 @@ export async function POST(request) {
     let finalQuestion;
     let inputMethod = 'voice';
 
-    if (audioUrl) {
-      // Voice submission: transcribe audio
+    if (audioBase64) {
+      const transcription = await transcribeAudioBase64(audioBase64, audioMimeType || "audio/webm");
+      if (!transcription) {
+        return NextResponse.json({ ok: false, error: "TRANSCRIPTION_FAILED" }, { status: 400 });
+      }
+      finalQuestion = transcription;
+      inputMethod = 'voice';
+    } else if (audioUrl) {
       const transcription = await transcribeAudio(audioUrl);
-      
       if (!transcription) {
         return NextResponse.json({ ok: false, error: "TRANSCRIPTION_FAILED" }, { status: 400 });
       }
       finalQuestion = transcription;
       inputMethod = 'voice';
     } else if (question) {
-      // Text submission: use question directly
       finalQuestion = question;
       inputMethod = 'text';
     } else {
-      return NextResponse.json({ ok: false, error: "Either audioUrl or question is required" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Either audioBase64, audioUrl, or question is required" }, { status: 400 });
     }
 
     // Query tutor using the server action

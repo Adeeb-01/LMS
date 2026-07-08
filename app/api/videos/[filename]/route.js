@@ -110,31 +110,45 @@ async function verifyVideoAccess(filename, userId, userRole) {
 }
 
 /**
- * Convert Node.js Readable stream to Web ReadableStream
- * Uses Readable.toWeb() for Node 18+
+ * Convert Node.js Readable stream to Web ReadableStream.
+ * Guards against "Controller is already closed" errors that occur when
+ * the browser cancels a range request (e.g. video player seeks).
  */
 function nodeStreamToWeb(nodeStream) {
-    // Node 18+ has Readable.toWeb()
-    if (typeof Readable.toWeb === 'function') {
-        return Readable.toWeb(nodeStream);
-    }
-    
-    // Fallback for older Node versions
+    let cancelled = false;
+
     return new ReadableStream({
         start(controller) {
             nodeStream.on('data', (chunk) => {
-                controller.enqueue(chunk);
+                if (cancelled) return;
+                try {
+                    controller.enqueue(chunk);
+                } catch {
+                    cancelled = true;
+                    nodeStream.destroy();
+                }
             });
             nodeStream.on('end', () => {
-                controller.close();
+                if (cancelled) return;
+                try {
+                    controller.close();
+                } catch {
+                    // Already closed by cancellation — safe to ignore
+                }
             });
             nodeStream.on('error', (err) => {
-                controller.error(err);
+                if (cancelled) return;
+                try {
+                    controller.error(err);
+                } catch {
+                    // Controller already closed — nothing to do
+                }
             });
         },
         cancel() {
+            cancelled = true;
             nodeStream.destroy();
-        }
+        },
     });
 }
 

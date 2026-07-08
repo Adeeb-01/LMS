@@ -1,5 +1,5 @@
 import { dbConnect } from "@/service/mongo";
-import { queryEmbeddings, isAvailable as isChromaAvailable } from "@/service/chroma";
+import { queryEmbeddings } from "@/service/chroma";
 import { generateEmbedding } from "@/lib/embeddings/gemini";
 import { hasEnrollmentForCourse } from "@/queries/enrollments";
 import { Lesson } from "@/model/lesson.model";
@@ -31,9 +31,19 @@ export async function searchCourse(query, courseId, user, options = {}) {
     throw new Error('You are not enrolled in this course');
   }
 
-  // 2. Check if ChromaDB is available
-  if (!isChromaAvailable()) {
-    throw new Error('Search service temporarily unavailable. Please try again later.');
+  // 2. Attempt ChromaDB connection (handles late-start / reconnection)
+  const { getCollection } = await import("@/service/chroma");
+  const collection = await getCollection();
+
+  if (!collection) {
+    console.warn('[SemanticSearch] ChromaDB unavailable — returning empty results for graceful degradation');
+    return {
+      query,
+      results: [],
+      totalMatches: 0,
+      searchTimeMs: Date.now() - startTime,
+      degraded: true,
+    };
   }
 
   // 3. Generate Query Embedding

@@ -3,9 +3,10 @@ import { getUserByEmail } from "@/queries/users";
 import { dbConnect } from "@/service/mongo";
 import { NextResponse } from "next/server";
 
-export const GET = async (request) => {
+/** Use auth() as route wrapper so the session is read from this request (Auth.js v5 pattern for route handlers). */
+export const GET = auth(async (request) => {
     try {
-        const session = await auth();
+        const session = request.auth;
         if (!session?.user) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
@@ -35,4 +36,4 @@ export const GET = async (request) => {
             { status: 500 }
         );
     } 
-}
+});

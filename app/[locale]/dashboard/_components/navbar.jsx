@@ -31,7 +31,8 @@ export const Navbar = () => {
       async function fetchMe() {
           try {
               const response = await fetch("/api/me", {
-                  cache: 'no-store' // Always fetch fresh data
+                  cache: "no-store",
+                  credentials: "same-origin",
               });
               if (response.ok) {
                   const data = await response.json();

@@ -60,44 +60,23 @@ export function RagTutorPanel({ lessonId, courseId, onSeek }) {
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      let audioUrl = null;
-      
+      let bodyPayload = { lessonId, courseId, inputMethod: method };
+
       if (method === "voice") {
-        // 1. Get presigned URL
-        const fileName = `tutor-query-${lessonId}-${Date.now()}.webm`;
-        const contentType = "audio/webm";
-        
-        const urlRes = await fetch("/api/upload/audio-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileName, contentType })
-        });
-
-        if (!urlRes.ok) throw new Error("Failed to get upload URL");
-        const { url } = await urlRes.json();
-
-        // 2. Upload to S3
-        const uploadRes = await fetch(url, {
-          method: "PUT",
-          headers: { "Content-Type": contentType },
-          body: input
-        });
-
-        if (!uploadRes.ok) throw new Error("Failed to upload audio");
-        audioUrl = url.split('?')[0];
+        const arrayBuffer = await input.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        bodyPayload.audioBase64 = base64;
+        bodyPayload.audioMimeType = input.type || "audio/webm";
+      } else {
+        bodyPayload.question = input;
       }
 
-      // 3. Query Tutor
       const response = await fetch("/api/rag-tutor/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audioUrl,
-          question: method === "text" ? input : undefined,
-          lessonId,
-          courseId,
-          inputMethod: method
-        })
+        body: JSON.stringify(bodyPayload)
       });
 
       const data = await response.json();
@@ -135,11 +114,27 @@ export function RagTutorPanel({ lessonId, courseId, onSeek }) {
           });
         }
       } else {
-        toast.error(data.error || "Failed to get response from tutor");
+        const errorMsg = data.error || "Failed to get response from tutor";
+        toast.error(errorMsg);
+        setMessages(prev => [...prev, {
+          id: Date.now().toString() + '-err',
+          role: "bot",
+          content: `⚠️ ${errorMsg}`,
+          timestamp: new Date(),
+          isGrounded: false,
+        }]);
       }
     } catch (error) {
-      console.error("Tutor query error:", error);
-      toast.error("An error occurred while talking to the tutor");
+      console.warn("[RagTutor] query error:", error);
+      const errorMsg = "An error occurred while talking to the tutor. Please try again.";
+      toast.error(errorMsg);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString() + '-err',
+        role: "bot",
+        content: `⚠️ ${errorMsg}`,
+        timestamp: new Date(),
+        isGrounded: false,
+      }]);
     } finally {
       setIsSubmitting(false);
     }
@@ -147,7 +142,7 @@ export function RagTutorPanel({ lessonId, courseId, onSeek }) {
 
   return (
     <>
-      <Card className="flex flex-col h-[600px] shadow-xl border-primary/20 bg-background/95 backdrop-blur">
+      <Card className="flex flex-col h-[min(600px,70vh)] shadow-xl border-primary/20 bg-background/95 backdrop-blur">
         <CardHeader className="border-b py-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />

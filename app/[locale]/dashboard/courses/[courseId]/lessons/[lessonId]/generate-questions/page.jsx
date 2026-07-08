@@ -36,6 +36,7 @@ export default async function GenerateQuestionsPage({ params }) {
 
   const quiz = await Quiz.findOne({ lessonId }).lean();
   const doc = await LectureDocument.findOne({ lessonId, embeddingStatus: 'indexed' }).lean();
+  const readyDoc = doc || await LectureDocument.findOne({ lessonId, status: 'ready' }).select('_id').lean();
   
   // Fetch existing generated questions (drafts)
   const existingQuestions = await Question.find({ 
@@ -79,6 +80,7 @@ export default async function GenerateQuestionsPage({ params }) {
               quizId={quiz?._id?.toString()}
               hasExistingQuestions={existingQuestions.length > 0}
               hasIndexedContent={!!doc}
+              lectureDocumentId={readyDoc?._id?.toString()}
             />
           </div>
         </div>

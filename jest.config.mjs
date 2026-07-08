@@ -15,7 +15,7 @@ const config = {
     '^bson$': '<rootDir>/node_modules/bson/lib/bson.cjs',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(bson|mongodb|mongoose|@xenova/transformers|next-intl|@google/generative-ai|openai)/)',
+    '/node_modules/(?!(bson|mongodb|mongoose|next-intl|@google/generative-ai)/)',
   ],
 }
 

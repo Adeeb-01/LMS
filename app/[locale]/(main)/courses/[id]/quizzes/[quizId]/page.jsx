@@ -53,7 +53,7 @@ export default async function TakeQuizPage({ params, searchParams }) {
 
     return (
         <div className="max-w-4xl mx-auto p-6">
-            {quizPlain.adaptiveConfig?.enabled ? (
+            {(quizPlain.adaptiveConfig?.enabled || quizPlain.batConfig?.enabled) ? (
                 <AdaptiveQuizWrapper
                     quiz={quizPlain}
                     courseId={courseId}

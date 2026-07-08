@@ -1,17 +1,21 @@
 import { generateGroundedResponse } from '@/lib/rag/tutor-response';
-import OpenAI from 'openai';
 
-const mockCreate = jest.fn();
+const mockGenerateContent = jest.fn();
 
-jest.mock('openai', () => {
-  return jest.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: mockCreate,
-      },
-    },
-  }));
-});
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn().mockReturnValue({
+      generateContent: mockGenerateContent,
+    }),
+  })),
+  SchemaType: {
+    OBJECT: 'OBJECT',
+    STRING: 'STRING',
+    NUMBER: 'NUMBER',
+    BOOLEAN: 'BOOLEAN',
+    ARRAY: 'ARRAY',
+  },
+}));
 
 describe('RAG Tutor Response Generation', () => {
   const mockQuestion = 'What is the main topic?';
@@ -26,24 +30,19 @@ describe('RAG Tutor Response Generation', () => {
       { text: 'Photosynthesis converts light to energy.', metadata: { seconds: 45 } },
     ];
 
-    const mockAIResponse = {
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              response: 'Photosynthesis is the process of converting light into chemical energy.',
-              isGrounded: true,
-              suggestedTimestamps: [
-                { seconds: 10, label: 'Main topic' },
-                { seconds: 45, label: 'Conversion process' }
-              ]
-            }),
-          },
-        },
-      ],
-    };
-
-    mockCreate.mockResolvedValue(mockAIResponse);
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            response: 'Photosynthesis is the process of converting light into chemical energy.',
+            isGrounded: true,
+            suggestedTimestamps: [
+              { seconds: 10, label: 'Main topic' },
+              { seconds: 45, label: 'Conversion process' },
+            ],
+          }),
+      },
+    });
 
     const result = await generateGroundedResponse(mockQuestion, mockContexts);
 
@@ -54,21 +53,16 @@ describe('RAG Tutor Response Generation', () => {
   });
 
   it('should return isGrounded: false when no context is provided', async () => {
-    const mockAIResponse = {
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              response: "I'm sorry, I couldn't find information about that in the lecture content.",
-              isGrounded: false,
-              suggestedTimestamps: []
-            }),
-          },
-        },
-      ],
-    };
-
-    mockCreate.mockResolvedValue(mockAIResponse);
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            response: "I'm sorry, I couldn't find information about that in the lecture content.",
+            isGrounded: false,
+            suggestedTimestamps: [],
+          }),
+      },
+    });
 
     const result = await generateGroundedResponse(mockQuestion, []);
 
@@ -77,9 +71,10 @@ describe('RAG Tutor Response Generation', () => {
   });
 
   it('should handle AI generation errors gracefully', async () => {
-    mockCreate.mockRejectedValue(new Error('OpenAI Error'));
+    mockGenerateContent.mockRejectedValue(new Error('Gemini Error'));
 
-    await expect(generateGroundedResponse(mockQuestion, [{ text: 'some context' }]))
-      .rejects.toThrow('OpenAI Error');
+    await expect(
+      generateGroundedResponse(mockQuestion, [{ text: 'some context' }])
+    ).rejects.toThrow('Gemini Error');
   });
 });
